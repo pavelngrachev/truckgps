@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Truck GPS</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+  :root{--bg:#14181c;--panel:#1d2329;--line:#323b44;--text:#eef2f5;--mute:#9aa7b2;--accent:#ffb000;--ok:#3ddc84}
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,system-ui,"Segoe UI",sans-serif}
+  #map{position:absolute;inset:0}
+  .top{position:absolute;z-index:1000;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top,0px) + 8px) 8px 8px;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+  .top>*{pointer-events:auto}
+  .bar{display:flex;gap:6px}
+  .bar button{flex:1;padding:12px 4px;font-size:15px;font-weight:600;border:2px solid var(--line);border-radius:10px;background:var(--panel);color:var(--text)}
+  .bar button.on{border-color:var(--accent);color:var(--accent)}
+  .search{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px;display:none;flex-direction:column;gap:6px}
+  .search.open{display:flex}
+  .search input{width:100%;padding:12px;font-size:16px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
+  .row{display:flex;gap:6px}
+  .row button,.search>button{flex:1;padding:12px;font-size:16px;font-weight:600;border:0;border-radius:8px;background:var(--accent);color:#1a1200}
+  .row button.alt{background:var(--line);color:var(--text)}
+  .truck{font-size:14px;color:var(--mute);display:grid;grid-template-columns:1fr 1fr;gap:4px 10px}
+  .truck b{color:var(--text)}
+  .haz{display:flex;align-items:center;justify-content:space-between;font-size:16px;font-weight:600}
+  .haz button{flex:none;width:auto;padding:10px 18px;background:var(--line);color:var(--text)}
+  .haz button.on{background:#e5484d;color:#fff}
+  .note{font-size:13px;color:var(--mute);line-height:1.35}
+  .bottom{position:absolute;z-index:1000;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);display:flex;justify-content:space-between;align-items:flex-end;gap:8px;pointer-events:none}
+  .bottom>*{pointer-events:auto}
+  #info{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:17px;font-weight:600;min-width:0}
+  #info small{display:block;font-weight:400;color:var(--mute);font-size:13px}
+  .fab{width:56px;height:56px;border-radius:50%;border:2px solid var(--accent);background:var(--panel);color:var(--accent);font-size:26px}
+  #recenter{display:none}
+  #menu{background:var(--panel);border:2px solid var(--line);color:var(--text);border-radius:10px;padding:0 14px;font-size:20px}
+  .me{width:18px;height:18px;border-radius:50%;background:#2f8cff;border:3px solid #fff;box-shadow:0 0 0 2px rgba(47,140,255,.4)}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="top">
+  <div class="bar" id="layers">
+    <button data-l="osm" class="on">Карта</button>
+    <button data-l="topo">Рельеф</button>
+    <button data-l="sat">Спутник</button>
+  </div>
+  <div class="search" id="panel">
+    <input id="from" placeholder="Откуда (пусто = моя позиция)" autocomplete="off">
+    <input id="to" placeholder="Куда: город или адрес" autocomplete="off">
+    <div class="row">
+      <button id="go">Проложить маршрут</button>
+      <button id="clear" class="alt">Сбросить</button>
+    </div>
+    <div class="haz"><span>Hazmat</span><button id="haz">Нет</button></div>
+    <div class="truck">
+      <span>Высота <b>13'6"</b></span><span>Ширина <b>8'6"</b></span>
+      <span>Прицеп <b>53'</b></span><span>Вес <b>80 000 lb</b></span>
+      <span>Руль <b>12 000</b></span><span>Драйв <b>34 000</b></span>
+      <span>Прицеп (оси) <b>34 000</b></span><span>Оси <b>5 (18 шин)</b></span>
+    </div>
+    <div class="note">Тест: маршрут строится как для легковой машины (OSRM). Параметры трака и hazmat пока только показаны, на маршрут они не влияют. Это подключим вместе с HERE или TomTom.</div>
+  </div>
+</div>
+
+<div class="bottom">
+  <div style="display:flex;gap:8px;align-items:flex-end;min-width:0;flex:1">
+    <button id="menu" class="fab" style="width:56px">☰</button>
+    <div id="info">Ищу позицию…<small>Разреши доступ к геолокации</small></div>
+  </div>
+  <button id="recenter" class="fab" aria-label="Вернуться к моей позиции">◎</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+(function(){
+  var map = L.map('map',{zoomControl:false}).setView([30.33,-81.66],11);
+  var layers = {
+    osm: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}),
+    topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'© OpenTopoMap, OSM'}),
+    sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18,attribution:'Esri'})
+  };
+  var current = 'osm';
+  layers.osm.addTo(map);
+
+  document.querySelectorAll('#layers button').forEach(function(b){
+    b.onclick = function(){
+      map.removeLayer(layers[current]);
+      current = b.dataset.l;
+      layers[current].addTo(map);
+      document.querySelectorAll('#layers button').forEach(function(x){x.classList.toggle('on',x===b)});
+    };
+  });
+
+  document.getElementById('menu').onclick = function(){document.getElementById('panel').classList.toggle('open')};
+
+  var hazBtn = document.getElementById('haz'), hazmat = false;
+  hazBtn.onclick = function(){hazmat=!hazmat;hazBtn.textContent=hazmat?'Да':'Нет';hazBtn.classList.toggle('on',hazmat)};
+
+  // --- позиция ---
+  var me = null, acc = null, pos = null, follow = true;
+  var info = document.getElementById('info'), recenter = document.getElementById('recenter');
+
+  function setInfo(a,b){info.innerHTML = a + (b?'<small>'+b+'</small>':'')}
+
+  map.on('dragstart zoomstart', function(e){
+    if(e.type==='dragstart' || (e.type==='zoomstart' && !programmatic)){follow=false;recenter.style.display='block'}
+  });
+  var programmatic = false;
+  function goTo(latlng,zoom){
+    programmatic = true;
+    map.setView(latlng, zoom || map.getZoom(), {animate:true});
+    setTimeout(function(){programmatic=false},600);
+  }
+  recenter.onclick = function(){
+    follow = true; recenter.style.display='none';
+    if(pos) goTo(pos, Math.max(map.getZoom(),15));
+  };
+
+  if(!navigator.geolocation){ setInfo('Нет геолокации','Открой страницу в Safari по HTTPS'); }
+  else navigator.geolocation.watchPosition(function(p){
+    pos = L.latLng(p.coords.latitude,p.coords.longitude);
+    if(!me){
+      me = L.marker(pos,{icon:L.divIcon({className:'',html:'<div class="me"></div>',iconSize:[18,18],iconAnchor:[9,9]})}).addTo(map);
+      acc = L.circle(pos,{radius:p.coords.accuracy,weight:1,color:'#2f8cff',fillOpacity:.08}).addTo(map);
+      goTo(pos,15);
+    } else { me.setLatLng(pos); acc.setLatLng(pos).setRadius(p.coords.accuracy) }
+    if(follow) goTo(pos);
+    var mph = p.coords.speed!=null && p.coords.speed>=0 ? Math.round(p.coords.speed*2.23694) : null;
+    if(!routeLine) setInfo(mph!=null ? mph+' mph' : 'Позиция найдена');
+    else updateRouteInfo(mph);
+    checkOffRoute();
+  }, function(err){
+    setInfo('Нет доступа к GPS','Настройки iPhone → Safari → Геолокация');
+  }, {enableHighAccuracy:true,maximumAge:2000,timeout:20000});
+
+  // --- поиск и маршрут ---
+  var routeLine = null, routePts = [], dest = null, destMarker = null, routeMeta = null, rerouting = false;
+
+  function geocode(q){
+    var u = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q='+encodeURIComponent(q);
+    return fetch(u).then(function(r){return r.json()}).then(function(a){
+      if(!a.length) throw new Error('Не нашла: '+q);
+      return L.latLng(+a[0].lat,+a[0].lon);
+    });
+  }
+
+  function fetchRoute(a,b){
+    var u = 'https://router.project-osrm.org/route/v1/driving/'+a.lng+','+a.lat+';'+b.lng+','+b.lat+'?overview=full&geometries=geojson';
+    return fetch(u).then(function(r){return r.json()}).then(function(d){
+      if(!d.routes||!d.routes.length) throw new Error('Маршрут не найден');
+      return d.routes[0];
+    });
+  }
+
+  function draw(route,fit){
+    if(routeLine) map.removeLayer(routeLine);
+    routePts = route.geometry.coordinates.map(function(c){return L.latLng(c[1],c[0])});
+    routeLine = L.polyline(routePts,{color:'#2f8cff',weight:7,opacity:.9}).addTo(map);
+    routeMeta = {dist:route.distance,dur:route.duration};
+    if(fit){ follow=false; recenter.style.display='block'; programmatic=true; map.fitBounds(routeLine.getBounds(),{padding:[60,60]}); setTimeout(function(){programmatic=false},800) }
+    updateRouteInfo(null);
+  }
+
+  function updateRouteInfo(mph){
+    if(!routeMeta) return;
+    var mi = (routeMeta.dist/1609.34).toFixed(1);
+    var h = Math.floor(routeMeta.dur/3600), m = Math.round((routeMeta.dur%3600)/60);
+    setInfo(mi+' mi · '+(h?h+' ч ':'')+m+' мин', (mph!=null?mph+' mph · ':'')+'время для легковой, не для трака');
+  }
+
+  document.getElementById('go').onclick = function(){
+    var fromQ = document.getElementById('from').value.trim();
+    var toQ = document.getElementById('to').value.trim();
+    if(!toQ){setInfo('Укажи, куда ехать');return}
+    setInfo('Строю маршрут…');
+    var pFrom = fromQ ? geocode(fromQ) : Promise.resolve(pos);
+    Promise.all([pFrom, geocode(toQ)]).then(function(r){
+      if(!r[0]) throw new Error('Нет моей позиции, введи «Откуда»');
+      dest = r[1];
+      if(destMarker) map.removeLayer(destMarker);
+      destMarker = L.marker(dest).addTo(map);
+      return fetchRoute(r[0], dest);
+    }).then(function(route){
+      draw(route,true);
+      document.getElementById('panel').classList.remove('open');
+    }).catch(function(e){setInfo('Ошибка',e.message)});
+  };
+
+  document.getElementById('clear').onclick = function(){
+    if(routeLine) map.removeLayer(routeLine);
+    if(destMarker) map.removeLayer(destMarker);
+    routeLine=null;destMarker=null;dest=null;routeMeta=null;routePts=[];
+    setInfo('Маршрут сброшен');
+  };
+
+  // --- перестроение, если съехал с маршрута ---
+  var lastReroute = 0;
+  function checkOffRoute(){
+    if(!routeLine||!pos||!dest||rerouting) return;
+    if(document.getElementById('from').value.trim()) return;
+    var min = Infinity;
+    for(var i=0;i<routePts.length;i++){var d=pos.distanceTo(routePts[i]); if(d<min)min=d}
+    if(min>150 && Date.now()-lastReroute>20000){
+      rerouting = true; lastReroute = Date.now();
+      setInfo('Перестраиваю маршрут…');
+      fetchRoute(pos,dest).then(function(r){draw(r,false)}).catch(function(){}).then(function(){rerouting=false});
+    }
+  }
+})();
+</script>
+</body>
+</html>
