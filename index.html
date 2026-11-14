@@ -82,15 +82,15 @@
   #speedVal{font-size:26px;font-weight:700;min-width:96px}
   #speedPop .done{width:100%;padding:12px;font-size:16px;font-weight:600;border:0;border-radius:8px;background:var(--line);color:var(--text)}
 
-  #info{position:absolute;z-index:1000;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);height:var(--bh,60px);background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:0 12px;font-size:19px;font-weight:700;display:flex;flex-direction:column;justify-content:center;overflow:hidden}
-  #info small{display:block;font-weight:500;color:var(--mute);font-size:14px;line-height:1.25}
+  #info{position:absolute;z-index:1000;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);height:var(--bh,60px);background:#bfe0ff;border:2px solid #8fc2f0;color:#0b2a45;border-radius:14px;padding:0 12px;font-size:19px;font-weight:700;display:flex;flex-direction:column;justify-content:center;overflow:hidden}
+  #info small{display:block;font-weight:500;color:#35597a;font-size:14px;line-height:1.25}
   #info.route{flex-direction:row;align-items:center;justify-content:space-around;text-align:center;padding:0 4px}
   #info.route div{display:flex;flex-direction:column;align-items:center}
   #info.route b{font-size:28px;font-weight:700;line-height:1.05;white-space:nowrap}
-  #info.route small{font-size:14px;font-weight:600;color:var(--mute)}
-  #turn{position:absolute;z-index:1000;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);height:calc(var(--bh,60px)*2 + 8px);background:var(--panel);border:2px solid var(--line);border-radius:14px;display:none;align-items:center;gap:14px;padding:0 14px;overflow:hidden}
+  #info.route small{font-size:14px;font-weight:600;color:#35597a}
+  #turn{position:absolute;z-index:1000;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);height:calc(var(--bh,60px)*2 + 8px);background:#bfe0ff;border:2px solid #8fc2f0;color:#0b2a45;border-radius:14px;display:flex;align-items:center;gap:14px;padding:0 14px;overflow:hidden}
   #turn .tl{display:flex;flex-direction:column;align-items:center;min-width:104px}
-  #turn .ar{font-size:62px;line-height:1;color:var(--accent);font-weight:700}
+  #turn .ar{font-size:62px;line-height:1;color:#0b5cab;font-weight:700}
   #turn .d{font-size:30px;font-weight:700;margin-top:2px;white-space:nowrap}
   #turn .t{font-size:24px;font-weight:700;line-height:1.2;min-width:0;overflow:hidden}
   #trkPop{left:80px;right:80px;top:calc(env(safe-area-inset-top,0px) + var(--bh,60px)*2 + 24px);bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px) + 24px);transform:none;min-width:0;padding:8px;flex-direction:column;gap:6px;overflow:hidden}
@@ -137,7 +137,7 @@
 <div id="statusScrim"></div>
 <div id="attr">© OpenStreetMap · OpenTopoMap · Esri · NWS</div>
 <button id="editDone">Done · drag buttons</button>
-<div id="info" style="display:none"></div>
+<div id="info"></div>
 <div id="turn"></div>
 <div class="zone" id="colL"></div>
 <div id="btnLayer"></div>
@@ -174,7 +174,7 @@
   var GAP=8, W=64;
   var rr=zR.getBoundingClientRect();
   var NN=Math.max(8,Math.floor((rr.height+10)/70)+1);
-  var n=Math.max(8,NN-3);
+  var n=Math.max(7,NN-3);
 
   var specsR={
     0:{id:'layerBtn',html:'MAP',label:'Map type'},
@@ -213,7 +213,7 @@
   // restore saved layout
   var plan={R:def.R.slice(),L:def.L.slice()};
   try{
-    var sv=JSON.parse(localStorage.getItem('layout2')||'null');
+    var sv=JSON.parse(localStorage.getItem('layout3')||'null');
     if(sv){
       var used={}, p2={R:[],L:[]};
       [['R','colR'],['L','colL']].forEach(function(pr){
@@ -254,7 +254,7 @@
 
   function save(){
     try{
-      localStorage.setItem('layout2',JSON.stringify({
+      localStorage.setItem('layout3',JSON.stringify({
         colR:order.slice(0,n).map(function(b){return b.dataset.key}),
         colL:order.slice(n).map(function(b){return b.dataset.key})
       }));
@@ -368,9 +368,15 @@
       infoTimer = setTimeout(function(){ updateRouteInfo(null,true) }, 5000);
     } else {
       msgUntil = 0;
-      infoTimer = setTimeout(function(){ if(!routeMeta) info.style.display='none' }, 5000);
+      infoTimer = setTimeout(function(){ if(!routeMeta) showIdleBar() }, 5000);
     }
   }
+  function showIdleBar(){
+    info.className = 'route';
+    info.style.display = 'flex';
+    info.innerHTML = '<div><b>--</b><small>mi</small></div><div><b>--:--</b><small>h:min</small></div><div><b>--:--</b><small>arrive</small></div>';
+  }
+  showIdleBar();
   gpsBtn.onclick = function(){ setInfo(gpsMsg) };
 
   map.on('dragstart zoomstart', function(e){
@@ -778,6 +784,7 @@
   document.getElementById('trkClose').onclick = function(){ trkPop.classList.remove('open') };
 
   // --- next turn (from OSRM route steps) ---
+  setTimeout(function(){ updateTurn() },0);
   var turnEl = document.getElementById('turn'), mans = [];
   function cap(t){ return t ? t.charAt(0).toUpperCase()+t.slice(1) : '' }
   function prepMans(route){
@@ -818,7 +825,11 @@
     return (mi<10 ? mi.toFixed(1) : Math.round(mi))+' mi';
   }
   function updateTurn(){
-    if(!routeMeta || !mans.length){ turnEl.style.display='none'; return }
+    if(!routeMeta || !mans.length){
+      turnEl.innerHTML = '<div class="tl"><div class="ar">↑</div><div class="d">--</div></div><div class="t">No route. Tap GO to set a destination</div>';
+      turnEl.style.display = 'flex';
+      return;
+    }
     var a = pos ? snap(pos.lat,pos.lng).along : 0, next = null;
     for(var i=0;i<mans.length;i++){ if(mans[i].type!=='depart' && mans[i].along > a+15){ next=mans[i]; break } }
     if(!next) next = mans[mans.length-1];
@@ -1008,7 +1019,7 @@
     if(destMarker) map.removeLayer(destMarker);
     routeLine=null;destMarker=null;dest=null;routeMeta=null;routePts=[];
     stations=[]; rests=[]; setWs('W--',null); setRa('R--');
-    mans=[]; turnEl.style.display='none';
+    mans=[]; updateTurn();
     setInfo('Route cleared');
   };
 
