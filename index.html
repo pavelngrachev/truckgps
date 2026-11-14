@@ -82,15 +82,16 @@
   #speedVal{font-size:26px;font-weight:700;min-width:96px}
   #speedPop .done{width:100%;padding:12px;font-size:16px;font-weight:600;border:0;border-radius:8px;background:var(--line);color:var(--text)}
 
-  #info{position:absolute;z-index:1000;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);height:var(--bh,60px);background:#bfe0ff;border:2px solid #8fc2f0;color:#0b2a45;border-radius:14px;padding:0 12px;font-size:19px;font-weight:700;display:flex;flex-direction:column;justify-content:center;overflow:hidden}
-  #info small{display:block;font-weight:500;color:#35597a;font-size:14px;line-height:1.25}
+  #info{position:absolute;z-index:1000;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);height:var(--bh,60px);background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:0 12px;font-size:19px;font-weight:700;display:flex;flex-direction:column;justify-content:center;overflow:hidden}
+  #info small{display:block;font-weight:500;color:var(--mute);font-size:14px;line-height:1.25}
   #info.route{flex-direction:row;align-items:center;justify-content:space-around;text-align:center;padding:0 4px}
-  #info.route div{display:flex;flex-direction:column;align-items:center}
+  #info.route div{display:flex;flex-direction:column;align-items:center;flex:1}
+  #info.route div.eta{flex:1.7}
   #info.route b{font-size:28px;font-weight:700;line-height:1.05;white-space:nowrap}
-  #info.route small{font-size:14px;font-weight:600;color:#35597a}
-  #turn{position:absolute;z-index:1000;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);height:calc(var(--bh,60px)*2 + 8px);background:#bfe0ff;border:2px solid #8fc2f0;color:#0b2a45;border-radius:14px;display:flex;align-items:center;gap:14px;padding:0 14px;overflow:hidden}
+  #info.route small{font-size:14px;font-weight:600;color:var(--mute)}
+  #turn{position:absolute;z-index:1000;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);height:calc(var(--bh,60px)*2 + 8px);background:var(--panel);border:2px solid var(--line);border-radius:14px;display:flex;align-items:center;gap:14px;padding:0 14px;overflow:hidden}
   #turn .tl{display:flex;flex-direction:column;align-items:center;min-width:104px}
-  #turn .ar{font-size:62px;line-height:1;color:#0b5cab;font-weight:700}
+  #turn .ar{font-size:62px;line-height:1;color:var(--accent);font-weight:700}
   #turn .d{font-size:30px;font-weight:700;margin-top:2px;white-space:nowrap}
   #turn .t{font-size:24px;font-weight:700;line-height:1.2;min-width:0;overflow:hidden}
   #trkPop{left:80px;right:80px;top:calc(env(safe-area-inset-top,0px) + var(--bh,60px)*2 + 24px);bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px) + 24px);transform:none;min-width:0;padding:8px;flex-direction:column;gap:6px;overflow:hidden}
@@ -374,7 +375,7 @@
   function showIdleBar(){
     info.className = 'route';
     info.style.display = 'flex';
-    info.innerHTML = '<div><b>--</b><small>mi</small></div><div><b>--:--</b><small>h:min</small></div><div><b>--:--</b><small>arrive</small></div>';
+    info.innerHTML = '<div><b>--</b><small>mi left</small></div><div><b>--:--</b><small>time left</small></div><div class="eta"><b>--:--</b><small>arrival</small></div>';
   }
   showIdleBar();
   gpsBtn.onclick = function(){ setInfo(gpsMsg) };
@@ -987,13 +988,17 @@
     var secs = mi/avgSpeed*3600;
     var h = Math.floor(secs/3600), m = Math.round((secs%3600)/60);
     if(m===60){h++;m=0}
-    var eta = new Date(Date.now()+secs*1000).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
+    var etaD = new Date(Date.now()+secs*1000);
+    var eta = etaD.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    var dt = etaD.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    var tz = '';
+    try{ tz = new Intl.DateTimeFormat('en-US',{timeZoneName:'short'}).formatToParts(etaD).filter(function(x){return x.type==='timeZoneName'})[0].value; }catch(e){}
     info.className = 'route';
     info.style.display = 'flex';
     clearTimeout(infoTimer);
-    info.innerHTML = '<div><b>'+(mi<10?mi.toFixed(1):Math.round(mi))+'</b><small>mi</small></div>'
-      +'<div><b>'+h+':'+(m<10?'0':'')+m+'</b><small>h:min</small></div>'
-      +'<div><b>'+eta+'</b><small>arrive</small></div>';
+    info.innerHTML = '<div><b>'+(mi<10?mi.toFixed(1):Math.round(mi))+'</b><small>mi left</small></div>'
+      +'<div><b>'+h+':'+(m<10?'0':'')+m+'</b><small>time left</small></div>'
+      +'<div class="eta"><b>'+eta+'</b><small>'+dt+(tz?' · '+tz:'')+'</small></div>';
   }
 
   document.getElementById('go').onclick = function(){
