@@ -87,8 +87,8 @@
   #info.route{flex-direction:row;align-items:center;justify-content:space-around;text-align:center;padding:0 4px}
   #info.route div{display:flex;flex-direction:column;align-items:center;flex:1}
   #info.route div.eta{flex:1.7}
-  #info.route b{font-size:28px;font-weight:700;line-height:1.05;white-space:nowrap}
-  #info.route small{font-size:14px;font-weight:600;color:var(--mute)}
+  #info.route b{font-size:19px;font-weight:700;line-height:1.05;white-space:nowrap}
+  #info.route small{font-size:12px;font-weight:600;color:var(--mute)}
   #turn{position:absolute;z-index:1000;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);height:calc(var(--bh,60px)*2 + 8px);background:var(--panel);border:2px solid var(--line);border-radius:14px;display:flex;align-items:center;gap:14px;padding:0 14px;overflow:hidden}
   #turn .tl{display:flex;flex-direction:column;align-items:center;min-width:104px}
   #turn .ar{font-size:62px;line-height:1;color:var(--accent);font-weight:700}
@@ -358,7 +358,7 @@
 
   // --- position ---
   var me = null, acc = null, pos = null, follow = true, programmatic = false;
-  var info = document.getElementById('info'), recenter = document.getElementById('recenter'), gpsBtn = document.getElementById('gpsBtn'), gpsMsg = 'Waiting for GPS…', infoTimer = null, msgUntil = 0;
+  var info = document.getElementById('info'), recenter = document.getElementById('recenter'), gpsBtn = document.getElementById('gpsBtn'), gpsMsg = 'Waiting for GPS…', infoTimer = null, msgUntil = 0, altFt = null;
   function setInfo(a,b){
     info.className='';
     info.innerHTML = a + (b?'<small>'+b+'</small>':'');
@@ -372,10 +372,11 @@
       infoTimer = setTimeout(function(){ if(!routeMeta) showIdleBar() }, 5000);
     }
   }
+  function elevHtml(){ return '<div><b>'+(altFt==null ? '--' : altFt.toLocaleString('en-US'))+'</b><small>elev ft</small></div>'; }
   function showIdleBar(){
     info.className = 'route';
     info.style.display = 'flex';
-    info.innerHTML = '<div><b>--</b><small>mi left</small></div><div><b>--:--</b><small>time left</small></div><div class="eta"><b>--:--</b><small>arrival</small></div>';
+    info.innerHTML = '<div><b>--</b><small>mi left</small></div><div><b>--:--</b><small>time left</small></div><div class="eta"><b>--:--</b><small>arrival</small></div>'+elevHtml();
   }
   showIdleBar();
   gpsBtn.onclick = function(){ setInfo(gpsMsg) };
@@ -406,8 +407,10 @@
     if(follow) goTo(pos);
     var mph = p.coords.speed!=null && p.coords.speed>=0 ? Math.round(p.coords.speed*2.23694) : null;
     var cst = document.getElementById('curSpdTxt'); if(cst) cst.textContent = mph!=null ? mph : '--';
+    var alt = p.coords.altitude; altFt = (typeof alt==='number' && !isNaN(alt)) ? Math.round(alt*3.28084) : null;
     updateCompass(p);
     updateLimit(mph);
+    if(!routeMeta && info.className==='route') showIdleBar();
     if(routeLine) updateRouteInfo(mph);
     checkOffRoute();
     updateWs();
@@ -998,7 +1001,7 @@
     clearTimeout(infoTimer);
     info.innerHTML = '<div><b>'+(mi<10?mi.toFixed(1):Math.round(mi))+'</b><small>mi left</small></div>'
       +'<div><b>'+h+':'+(m<10?'0':'')+m+'</b><small>time left</small></div>'
-      +'<div class="eta"><b>'+eta+'</b><small>'+dt+(tz?' · '+tz:'')+'</small></div>';
+      +'<div class="eta"><b>'+eta+'</b><small>'+dt+(tz?' · '+tz:'')+'</small></div>'+elevHtml();
   }
 
   document.getElementById('go').onclick = function(){
