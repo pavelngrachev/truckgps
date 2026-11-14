@@ -66,7 +66,7 @@
   .fab.empty{border-style:dashed;color:var(--mute);background:rgba(29,35,41,.8)}
   .fab.on{background:var(--accent);border-color:var(--accent);color:#1a1200}
   .fab.on small{color:#1a1200}
-  #speedBtn{font-size:22px}
+  #speedBtn,#curSpd,#limBtn{font-size:22px}
   #recenter{border-color:var(--accent);color:var(--accent);opacity:.35}
   #recenter.show{opacity:1}
 
@@ -353,7 +353,15 @@
     };
   });
 
-  document.getElementById('menu').onclick = function(){ closePops(); document.getElementById('panel').classList.toggle('open') };
+  var panelEl = document.getElementById('panel');
+  function openPanel(){ closePops(); panelEl.classList.add('open'); }
+  function closePanel(){
+    panelEl.classList.remove('open');
+    if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  }
+  document.getElementById('menu').onclick = function(){ closePops(); panelEl.classList.toggle('open') };
+  document.getElementById('turn').onclick = function(){ if(panelEl.classList.contains('open')) closePanel(); else openPanel(); };
+  map.on('click', closePanel);
 
   var hazBtn = document.getElementById('haz'), hazmat = false;
   hazBtn.onclick = function(){hazmat=!hazmat;hazBtn.textContent=hazmat?'Yes':'No';hazBtn.classList.toggle('on',hazmat)};
