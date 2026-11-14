@@ -139,7 +139,7 @@
 </div>
 
 <div id="statusScrim"></div>
-<div id="attr">© OpenStreetMap · OpenTopoMap · Esri · NWS</div>
+<div id="attr">© OpenStreetMap · CARTO · HERE · OpenTopoMap · Esri · NWS</div>
 <button id="editDone">Done · drag buttons</button>
 <div id="info"></div>
 <div id="turn"></div>
@@ -148,7 +148,10 @@
 <div class="zone" id="colR"></div>
 
 <div class="pop" id="layerPop">
-  <button class="opt on" data-l="osm">Map</button>
+  <button class="opt" data-l="carto">Bright</button>
+  <button class="opt here" data-l="here" style="display:none">HERE</button>
+  <button class="opt here" data-l="heretruck" style="display:none">HERE Truck</button>
+  <button class="opt" data-l="osm">OSM</button>
   <button class="opt" data-l="topo">Terrain</button>
   <button class="opt" data-l="sat">Satellite</button>
 </div>
@@ -334,13 +337,18 @@
   map.on('zoomend',function(){ if(skipSave) return; try{ localStorage.setItem('zoom',map.getZoom()); }catch(e){} });
   document.addEventListener('gesturestart',function(e){ e.preventDefault() });
   var layers = {
+    carto: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:19,detectRetina:true,attribution:'© CARTO, OpenStreetMap'}),
     osm: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}),
     topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'© OpenTopoMap, OSM'}),
     sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18,attribution:'Esri'})
   };
-  var names = {osm:'Map',topo:'Terrain',sat:'Satellite'};
-  var current = 'osm';
-  layers.osm.addTo(map);
+  var current = 'carto', pendingLayer = null;
+  try{
+    var savedLayer = localStorage.getItem('layer');
+    if(savedLayer==='here' || savedLayer==='heretruck') pendingLayer = savedLayer;
+    else if(savedLayer && layers[savedLayer]) current = savedLayer;
+  }catch(e){}
+  layers[current].addTo(map);
 
   var layerPop = document.getElementById('layerPop'), speedPop = document.getElementById('speedPop'), trkPop = document.getElementById('trkPop');
   function closePops(except){
@@ -349,16 +357,22 @@
 
   // --- map type ---
   document.getElementById('layerBtn').onclick = function(){ closePops(layerPop); layerPop.classList.toggle('open') };
+  function markLayer(){
+    layerPop.querySelectorAll('.opt').forEach(function(x){ x.classList.toggle('on', x.dataset.l===current) });
+  }
+  function switchLayer(k){
+    if(!layers[k]) return;
+    if(layers[current] && map.hasLayer(layers[current])) map.removeLayer(layers[current]);
+    current = k;
+    layers[current].addTo(map);
+    layers[current].bringToBack();
+    markLayer();
+    try{ localStorage.setItem('layer',k); }catch(e){}
+  }
   layerPop.querySelectorAll('.opt').forEach(function(b){
-    b.onclick = function(){
-      map.removeLayer(layers[current]);
-      current = b.dataset.l;
-      layers[current].addTo(map);
-      layers[current].bringToBack();
-      layerPop.querySelectorAll('.opt').forEach(function(x){x.classList.toggle('on',x===b)});
-      layerPop.classList.remove('open');
-    };
+    b.onclick = function(){ switchLayer(b.dataset.l); layerPop.classList.remove('open'); };
   });
+  markLayer();
 
   var panelEl = document.getElementById('panel');
   function openPanel(){ closePops(); panelEl.classList.add('open'); }
@@ -715,6 +729,27 @@
     updateNote();
   });
   updateNote();
+
+  function setupHere(){
+    var btns = layerPop.querySelectorAll('.opt.here');
+    var wasHere = (current==='here' || current==='heretruck');
+    ['here','heretruck'].forEach(function(k){ if(layers[k] && map.hasLayer(layers[k])) map.removeLayer(layers[k]); });
+    if(!hereKey){
+      btns.forEach(function(b){ b.style.display='none' });
+      if(wasHere){ current='carto'; layers.carto.addTo(map); layers.carto.bringToBack(); markLayer(); }
+      return;
+    }
+    var base = 'https://maps.hereapi.com/v3/base/mc/{z}/{x}/{y}/png?size=512&style=explore.day&apiKey='+encodeURIComponent(hereKey);
+    var o = {tileSize:512,zoomOffset:-1,maxZoom:19,attribution:'© HERE'};
+    layers.here = L.tileLayer(base,o);
+    layers.heretruck = L.tileLayer(base+'&features=vehicle_restrictions:active_and_inactive',o);
+    btns.forEach(function(b){ b.style.display=''; });
+    if(wasHere){ layers[current].addTo(map); layers[current].bringToBack(); }
+    else if(pendingLayer){ switchLayer(pendingLayer); }
+    pendingLayer = null;
+  }
+  keyEl.addEventListener('change', setupHere);
+  setupHere();
 
   function decodeFlex(str){
     var DEC = {}, idx = 0;
