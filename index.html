@@ -133,7 +133,8 @@
       <span>Steer <b>12,000</b></span><span>Drive <b>34,000</b></span>
       <span>Trailer axles <b>34,000</b></span><span>Axles <b>5 (18 tires)</b></span>
     </div>
-    <div class="note">Test mode: the route is built for a passenger car (OSRM). Truck parameters and hazmat are shown only and do not affect the route yet. They will work once HERE or TomTom is connected.</div>
+    <input id="hereKey" placeholder="HERE API key (stays only on this phone)" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div class="note" id="routeNote"></div>
   </div>
 </div>
 
@@ -370,7 +371,7 @@
   map.on('click', closePanel);
 
   var hazBtn = document.getElementById('haz'), hazmat = false;
-  hazBtn.onclick = function(){hazmat=!hazmat;hazBtn.textContent=hazmat?'Yes':'No';hazBtn.classList.toggle('on',hazmat)};
+  hazBtn.onclick = function(){hazmat=!hazmat;hazBtn.textContent=hazmat?'Yes':'No';hazBtn.classList.toggle('on',hazmat); updateNote()};
 
   // --- position ---
   var me = null, acc = null, pos = null, follow = true, programmatic = false;
@@ -699,7 +700,87 @@
     return geocode(input.value.trim());
   }
 
-  function fetchRoute(a,b){
+  // --- HERE truck routing (used when a key is saved on this phone) ---
+  var hereKey = '';
+  try{ hereKey = localStorage.getItem('hereKey') || ''; }catch(e){}
+  var keyEl = document.getElementById('hereKey'); keyEl.value = hereKey;
+  function updateNote(){
+    document.getElementById('routeNote').textContent = hereKey
+      ? 'Truck routing by HERE: 13\'6" high, 8\'6" wide, 80,000 lb, 5 axles'+(hazmat ? ', hazmat' : '')+'.'
+      : 'Test mode: the route is built for a passenger car (OSRM). Paste a HERE API key above to get truck routes.';
+  }
+  keyEl.addEventListener('input',function(){
+    hereKey = keyEl.value.trim();
+    try{ localStorage.setItem('hereKey',hereKey); }catch(e){}
+    updateNote();
+  });
+  updateNote();
+
+  function decodeFlex(str){
+    var DEC = {}, idx = 0;
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'.split('').forEach(function(c,i){ DEC[c]=i });
+    function unsigned(){ var res=0, shift=0, v; do{ v=DEC[str.charAt(idx++)]; res += (v&0x1F)*Math.pow(2,shift); shift+=5; }while(v&0x20); return res; }
+    function signed(){ var u=unsigned(); return (u%2===1) ? -((u-1)/2)-1 : u/2; }
+    unsigned(); // version
+    var header = unsigned(), precision = header & 15, third = (header>>4) & 7, factor = Math.pow(10,precision);
+    var lat=0, lng=0, pts=[];
+    while(idx<str.length){
+      lat += signed(); lng += signed();
+      if(third) signed();
+      pts.push([lat/factor, lng/factor]);
+    }
+    return pts;
+  }
+  function hereType(ac){
+    var a = ac.action||'';
+    if(a==='depart'||a==='arrive') return a;
+    if(a==='turn'||a==='uTurn') return 'turn';
+    if(a==='keep') return 'fork';
+    if(a==='enterHighway'||a==='ramp') return 'on ramp';
+    if(a==='exit') return 'off ramp';
+    if(a.indexOf('roundabout')===0) return 'roundabout';
+    return 'continue';
+  }
+  function hereMod(ac){
+    if(ac.action==='uTurn') return 'uturn';
+    var d = ac.direction, sv = ac.severity;
+    if(d!=='left' && d!=='right') return 'straight';
+    if(sv==='light') return 'slight '+d;
+    if(sv==='heavy') return 'sharp '+d;
+    return d;
+  }
+  function fetchRouteHere(a,b){
+    var u = 'https://router.hereapi.com/v8/routes?transportMode=truck&origin='+a.lat+','+a.lng+'&destination='+b.lat+','+b.lng
+      +'&return=polyline,summary,actions,instructions&lang=en-US&units=imperial'
+      +'&vehicle[height]=411&vehicle[width]=259&vehicle[length]=2130&vehicle[grossWeight]=36287'
+      +'&vehicle[weightPerAxle]=7711&vehicle[axleCount]=5&vehicle[trailerCount]=1'
+      +(hazmat ? '&vehicle[shippedHazardousGoods]=explosive' : '')
+      +'&apikey='+encodeURIComponent(hereKey);
+    return fetch(u).then(function(r){
+      return r.json().then(function(d){
+        if(!r.ok) throw new Error((d && (d.title || d.error_description || d.error)) || ('HERE error '+r.status));
+        return d;
+      });
+    }).then(function(d){
+      var rt = d.routes && d.routes[0];
+      if(!rt) throw new Error('No truck route found');
+      var coords=[], steps=[], dist=0, dur=0, warn=false;
+      rt.sections.forEach(function(sec){
+        var pts = decodeFlex(sec.polyline);
+        pts.forEach(function(p){ coords.push([p[1],p[0]]) });
+        dist += sec.summary.length; dur += sec.summary.duration;
+        (sec.actions||[]).forEach(function(ac){
+          var p = pts[ac.offset] || pts[0];
+          steps.push({maneuver:{location:[p[1],p[0]],type:hereType(ac),modifier:hereMod(ac)},name:'',text:ac.instruction||''});
+        });
+        (sec.notices||[]).forEach(function(n){ if(n.code==='violatedVehicleRestriction') warn=true; });
+      });
+      return {geometry:{coordinates:coords},distance:dist,duration:dur,legs:[{steps:steps}],warn:warn};
+    });
+  }
+  function fetchRoute(a,b){ return hereKey ? fetchRouteHere(a,b) : fetchRouteOsrm(a,b); }
+
+  function fetchRouteOsrm(a,b){
     var u = 'https://router.project-osrm.org/route/v1/driving/'+a.lng+','+a.lat+';'+b.lng+','+b.lat+'?overview=full&geometries=geojson&steps=true';
     return fetch(u).then(function(r){return r.json()}).then(function(d){
       if(!d.routes||!d.routes.length) throw new Error('Route not found');
@@ -836,7 +917,7 @@
       (leg.steps||[]).forEach(function(st){
         var m = st.maneuver; if(!m || !m.location) return;
         var r = snap(m.location[1], m.location[0]);
-        mans.push({along:r.along,type:m.type,mod:m.modifier||'',name:st.name||'',ref:st.ref||'',dest:st.destinations||''});
+        mans.push({along:r.along,type:m.type,mod:m.modifier||'',name:st.name||'',ref:st.ref||'',dest:st.destinations||'',text:st.text||''});
       });
     });
     mans.sort(function(a,b){return a.along-b.along});
@@ -848,6 +929,7 @@
     return map[m.mod] || '↑';
   }
   function textFor(m){
+    if(m.text) return m.text;
     var t, road = m.ref || m.name;
     if(m.type==='arrive') return 'Arrive at destination';
     if(m.type==='turn'||m.type==='end of road') t = m.mod==='straight' ? 'Continue straight' : (m.mod==='uturn' ? 'Make a U-turn' : 'Turn '+m.mod);
@@ -1056,6 +1138,7 @@
       return fetchRoute(r[0], dest);
     }).then(function(route){
       draw(route,true);
+      if(route.warn) setInfo('Warning','This route violates a truck restriction');
       document.getElementById('panel').classList.remove('open');
     }).catch(function(e){setInfo('Error',e.message)});
   };
