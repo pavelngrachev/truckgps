@@ -87,6 +87,7 @@
   #info.route{flex-direction:row;align-items:center;justify-content:center;padding:0 3px;font-size:19px;font-weight:700}
   #info.route .row{display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;column-gap:.28em;row-gap:.05em;line-height:1.15;letter-spacing:-.01em}
   #info.route .row span{white-space:nowrap}
+  #info.route .row span.eta{color:#ff5a5f}
   #info.route b{font-size:19px;font-weight:700;line-height:1.05;white-space:nowrap}
   #info.route small{font-size:12px;font-weight:600;color:var(--mute)}
   #turn{position:absolute;z-index:1000;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);height:calc(var(--bh,60px)*2 + 8px);background:var(--panel);border:2px solid var(--line);border-radius:14px;display:flex;align-items:center;gap:14px;padding:0 14px;overflow:hidden}
@@ -183,14 +184,15 @@
     2:{id:'speedBtn',html:'<span id="speedTxt">55</span>',label:'Average speed'},
     3:{id:'wsBtn',key:'e4',html:'<span id="wsTxt">W--</span>',label:'Next weigh station'},
     4:{id:'raBtn',key:'e5',html:'<span id="raTxt">R--</span>',label:'Next rest area'},
-    5:{id:'trkBtn',key:'e6',html:'TRK',label:'Truck stops'}
+    5:{id:'trkBtn',key:'e6',html:'POI',label:'Truck stops'}
   };
   specsR[n-1]={id:'recenter',html:'LOC',label:'Recenter'};
   var specsL={0:{id:'gpsBtn',html:'GPS',label:'GPS status'}};
   specsL[1]={id:'zinBtn',key:'e'+(n+2),html:'<span style="font-size:28px;line-height:1">+</span>',label:'Zoom in'};
   specsL[2]={id:'zoutBtn',key:'e'+(n+3),html:'<span style="font-size:28px;line-height:1">−</span><small id="scaleTxt">1 mi</small>',label:'Zoom out'};
-  specsL[3]={id:'cmpBtn',key:'e'+(n+4),html:'<span id="cmpTxt" style="font-size:17px"><span style="color:#ff5a5f">N</span> --</span>',label:'Heading / map rotation'};
-  specsL[n-2]={id:'curSpd',key:'e'+(2*n-1),html:'<span id="curSpdTxt">--</span><small id="limTxt">lim --</small>',label:'Current speed'};
+  specsL[3]={id:'cmpBtn',key:'e'+(n+4),html:'<span id="cmpTxt"><span style="color:#ff5a5f">N</span> --</span>',label:'Heading / map rotation'};
+  specsL[n-2]={id:'curSpd',key:'e'+(2*n-1),html:'<span id="curSpdTxt">--</span>',label:'Current speed'};
+  specsL[4]={id:'limBtn',key:'e'+(n+5),html:'<span id="limTxt">..</span>',label:'Speed limit'};
   specsL[n-1]={id:'menu',html:'GO',label:'Search'};
 
   var btns={}, def={R:[],L:[]}, num=1;
@@ -378,7 +380,7 @@
   function showIdleBar(){
     info.className = 'route';
     info.style.display = 'flex';
-    info.innerHTML = '<span class="row"><span>--</span><span>--:--</span><span>--:--</span><span>'+elevTxt()+'</span></span>';
+    info.innerHTML = '<span class="row"><span>--</span><span>--:--</span><span class="eta">--:--</span><span>'+elevTxt()+'</span></span>';
     fitBar();
   }
   showIdleBar();
@@ -449,7 +451,7 @@
   updateScale();
 
   // --- speed limit (OpenStreetMap maxspeed, loaded around your position) ---
-  var slWays = null, slCenter = null, slBusy = false, slRetry = 0, curLimit = null;
+  var slWays = null, slCenter = null, slBusy = false, slRetry = 0, curLimit = null, slFailed = false, slLast = 0;
   function overpass(q){
     var hosts=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
     function tryHost(i){
@@ -470,9 +472,10 @@
   }
   function loadLimits(){
     if(!pos || slBusy || Date.now()<slRetry) return;
-    if(slCenter && slCenter.distanceTo(pos)<1500) return;
-    slBusy = true;
-    var center = pos, m = 0.03, bb = [pos.lat-m,pos.lng-m,pos.lat+m,pos.lng+m].join(',');
+    if(slCenter && slCenter.distanceTo(pos)<700) return;
+    if(Date.now()-slLast<15000) return;
+    slBusy = true; slLast = Date.now();
+    var center = pos, m = 0.02, bb = [pos.lat-m,pos.lng-m,pos.lat+m,pos.lng+m].join(',');
     var q = '[out:json][timeout:25];way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link)$"]["maxspeed"]('+bb+');out tags geom;';
     overpass(q).then(function(d){
       var ways = [];
@@ -484,8 +487,8 @@
         var la = pts.map(function(x){return x[0]}), lo = pts.map(function(x){return x[1]});
         ways.push({lim:lim,pts:pts,minLa:Math.min.apply(null,la),maxLa:Math.max.apply(null,la),minLo:Math.min.apply(null,lo),maxLo:Math.max.apply(null,lo)});
       });
-      slWays = ways; slCenter = center; slBusy = false;
-    }).catch(function(){ slBusy = false; slRetry = Date.now()+60000; });
+      slWays = ways; slCenter = center; slBusy = false; slFailed = false;
+    }).catch(function(){ slBusy = false; slFailed = true; slRetry = Date.now()+30000; });
   }
   function updateLimit(mph){
     loadLimits();
@@ -506,7 +509,7 @@
     }
     curLimit = lim;
     var lt = document.getElementById('limTxt'), cs = document.getElementById('curSpdTxt');
-    if(lt) lt.textContent = 'lim '+(lim!=null ? lim : '--');
+    if(lt) lt.textContent = lim!=null ? lim : (slWays ? '--' : (slFailed ? '??' : '..'));
     if(cs) cs.style.color = (mph!=null && lim!=null && mph>lim) ? '#ff5a5f' : '';
   }
 
@@ -1002,7 +1005,7 @@
     info.className = 'route';
     info.style.display = 'flex';
     clearTimeout(infoTimer);
-    info.innerHTML = '<span class="row"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span>'+eta+' '+dt.toUpperCase()+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span></span>';
+    info.innerHTML = '<span class="row"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+' '+dt.toUpperCase()+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span></span>';
     fitBar();
   }
 
