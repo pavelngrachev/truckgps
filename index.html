@@ -14,7 +14,8 @@
   :root{--bg:#14181c;--panel:#1d2329;--line:#323b44;--text:#eef2f5;--mute:#9aa7b2;--accent:#ffb000}
   *{box-sizing:border-box}
   html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,system-ui,"Segoe UI",sans-serif}
-  #map{position:absolute;inset:0}
+  html,body{overflow:hidden;position:fixed;width:100%;height:100%;overscroll-behavior:none}
+  #map{position:absolute;inset:0;touch-action:none !important}
   button{font-family:inherit}
 
   /* search panel (top) */
@@ -325,7 +326,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script>
 (function(){
-  var map = L.map('map',{zoomControl:false,zoomSnap:0,attributionControl:false}).setView([30.33,-81.66],11);
+  var savedZoom = null;
+  try{ var sz = parseFloat(localStorage.getItem('zoom')); if(sz>=3 && sz<=19) savedZoom = sz; }catch(e){}
+  var map = L.map('map',{zoomControl:false,zoomSnap:0,attributionControl:false}).setView([30.33,-81.66],savedZoom||11);
+  var skipSave = false;
+  map.on('zoomend',function(){ if(skipSave) return; try{ localStorage.setItem('zoom',map.getZoom()); }catch(e){} });
+  document.addEventListener('gesturestart',function(e){ e.preventDefault() });
   var layers = {
     osm: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}),
     topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'© OpenTopoMap, OSM'}),
@@ -404,7 +410,7 @@
   }
   recenter.onclick = function(){
     follow = true; recenter.classList.remove('show');
-    if(pos) goTo(pos, Math.max(map.getZoom(),15));
+    if(pos) goTo(pos);
   };
 
   if(!navigator.geolocation){ gpsMsg = 'No GPS. Open the page in Safari over HTTPS'; setInfo(gpsMsg); }
@@ -415,7 +421,7 @@
     if(!me){
       me = L.marker(pos,{icon:L.divIcon({className:'',html:'<div class="arw" id="arw"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M12 2 L20 21 L12 16.5 L4 21 Z" fill="#2f8cff" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg></div>',iconSize:[30,30],iconAnchor:[15,15]})}).addTo(map);
       acc = L.circle(pos,{radius:p.coords.accuracy,weight:1,color:'#2f8cff',fillOpacity:.08}).addTo(map);
-      goTo(pos,15);
+      goTo(pos,savedZoom||15);
     } else { me.setLatLng(pos); acc.setLatLng(pos).setRadius(p.coords.accuracy) }
     if(follow) goTo(pos);
     var mph = p.coords.speed!=null && p.coords.speed>=0 ? Math.round(p.coords.speed*2.23694) : null;
@@ -570,6 +576,25 @@
     }
     setCompassText();
   }
+  var pan = null;
+  mapEl.addEventListener('pointerdown',function(e){
+    if(!headingUp || pan) return;
+    pan = {id:e.pointerId,x:e.clientX,y:e.clientY,moved:false};
+  });
+  mapEl.addEventListener('pointermove',function(e){
+    if(!headingUp || !pan || e.pointerId!==pan.id) return;
+    var dx = e.clientX-pan.x, dy = e.clientY-pan.y;
+    if(!pan.moved && Math.hypot(dx,dy)<6) return;
+    pan.moved = true; pan.x = e.clientX; pan.y = e.clientY;
+    var a = rotAngle*Math.PI/180;
+    var cx = dx*Math.cos(a)+dy*Math.sin(a), cy = -dx*Math.sin(a)+dy*Math.cos(a);
+    map.panBy([-cx,-cy],{animate:false});
+    follow = false; recenter.classList.add('show');
+    e.preventDefault();
+  },{passive:false});
+  function endPan(e){ if(pan && e.pointerId===pan.id) pan = null; }
+  mapEl.addEventListener('pointerup',endPan);
+  mapEl.addEventListener('pointercancel',endPan);
   window.addEventListener('resize', geometry);
   function updateCompass(p){
     var h = p.coords.heading, ok = (typeof h==='number' && !isNaN(h));
@@ -774,7 +799,7 @@
       el.appendChild(b); el.appendChild(s1); el.appendChild(s2);
       el.onclick = function(){
         follow=false; recenter.classList.add('show');
-        programmatic=true; map.setView([x.lat,x.lng],15); setTimeout(function(){programmatic=false},800);
+        programmatic=true; skipSave=true; map.setView([x.lat,x.lng],15); setTimeout(function(){programmatic=false},800); setTimeout(function(){skipSave=false},1500);
         trkPop.classList.remove('open');
       };
       box.appendChild(el);
@@ -988,7 +1013,7 @@
     routeLine = L.polyline(routePts,{color:'#2f8cff',weight:7,opacity:.9}).addTo(map);
     routeMeta = {dist:route.distance,dur:route.duration};
     prepRoute(); prepMans(route); loadStations();
-    if(fit && !headingUp){ follow=false; recenter.classList.add('show'); programmatic=true; map.fitBounds(routeLine.getBounds(),{padding:[60,90]}); setTimeout(function(){programmatic=false},800) }
+    if(fit && !headingUp){ follow=false; recenter.classList.add('show'); programmatic=true; skipSave=true; map.fitBounds(routeLine.getBounds(),{padding:[60,90]}); setTimeout(function(){programmatic=false},800); setTimeout(function(){skipSave=false},1500) }
     updateRouteInfo(null,true);
     updateTurn();
   }
