@@ -86,7 +86,7 @@
   #info{position:absolute;z-index:1000;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);height:var(--bh,60px);background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:0 12px;font-size:19px;font-weight:700;display:flex;flex-direction:column;justify-content:center;overflow:hidden}
   #info small{display:block;font-weight:500;color:var(--mute);font-size:14px;line-height:1.25}
   #info.route{flex-direction:row;align-items:center;justify-content:center;padding:0 3px;font-size:19px;font-weight:700}
-  #info.route .row{display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;column-gap:.28em;row-gap:.05em;line-height:1.15;letter-spacing:-.01em}
+  #info.route .row{width:100%;min-width:0;display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;column-gap:.28em;row-gap:.05em;line-height:1.15;letter-spacing:-.01em}
   #info.route .row span{white-space:nowrap}
   #info.route .row span.eta{color:#ff5a5f}
   #info.route b{font-size:19px;font-weight:700;line-height:1.05;white-space:nowrap}
@@ -579,7 +579,7 @@
   function setCompassText(){
     var ct = document.getElementById('cmpTxt'); if(!ct) return;
     var d = lastHeading==null ? '--' : CARD[Math.round(lastHeading/45)%8];
-    ct.innerHTML = headingUp ? d : '<span style="color:#ff5a5f">N</span> '+d;
+    ct.innerHTML = headingUp ? d : '<span style="color:#ff5a5f">N</span>'+d;
   }
   function geometry(){
     if(!headingUp) return;
@@ -1180,7 +1180,7 @@
     info.className = 'route';
     info.style.display = 'flex';
     clearTimeout(infoTimer);
-    info.innerHTML = '<span class="row"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+' '+dt.toUpperCase()+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span><span>'+windTxt()+'</span></span>';
+    info.innerHTML = '<span class="row"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span><span>'+windTxt()+'</span></span>';
     fitBar();
   }
 
