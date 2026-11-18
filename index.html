@@ -139,7 +139,7 @@
 </div>
 
 <div id="statusScrim"></div>
-<div id="attr">© OpenStreetMap · CARTO · HERE · OpenTopoMap · Esri · NWS</div>
+<div id="attr">© OpenStreetMap · HERE · OpenTopoMap · Esri · NWS · Open-Meteo</div>
 <button id="editDone">Done · drag buttons</button>
 <div id="info"></div>
 <div id="turn"></div>
@@ -148,7 +148,7 @@
 <div class="zone" id="colR"></div>
 
 <div class="pop" id="layerPop">
-  <button class="opt" data-l="carto">Bright</button>
+  <button class="opt" data-l="streets">Streets</button>
   <button class="opt here" data-l="here" style="display:none">HERE</button>
   <button class="opt here" data-l="heretruck" style="display:none">HERE Truck</button>
   <button class="opt" data-l="osm">OSM</button>
@@ -337,12 +337,12 @@
   map.on('zoomend',function(){ if(skipSave) return; try{ localStorage.setItem('zoom',map.getZoom()); }catch(e){} });
   document.addEventListener('gesturestart',function(e){ e.preventDefault() });
   var layers = {
-    carto: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:19,detectRetina:true,attribution:'© CARTO, OpenStreetMap'}),
+    streets: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Esri'}),
     osm: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}),
     topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'© OpenTopoMap, OSM'}),
     sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18,attribution:'Esri'})
   };
-  var current = 'carto', pendingLayer = null;
+  var current = 'osm', pendingLayer = null;
   try{
     var savedLayer = localStorage.getItem('layer');
     if(savedLayer==='here' || savedLayer==='heretruck') pendingLayer = savedLayer;
@@ -403,13 +403,37 @@
       infoTimer = setTimeout(function(){ if(!routeMeta) showIdleBar() }, 5000);
     }
   }
+  var windInfo = null, windBusy = false, windT = 0, windPos = null;
+  function windTxt(){
+    if(!windInfo) return '--';
+    var t = CARD[Math.round(windInfo.dir/45)%8]+Math.round(windInfo.spd)+'G'+(windInfo.gust!=null ? Math.round(windInfo.gust) : '--');
+    if(lastHeading!=null){
+      var rel = ((windInfo.dir+180-lastHeading)%360+360)%360;
+      t += ['↑','↗','→','↘','↓','↙','←','↖'][Math.round(rel/45)%8];
+    }
+    return t;
+  }
+  function loadWind(){
+    if(!pos || windBusy) return;
+    if(windPos && Date.now()-windT<300000 && windPos.distanceTo(pos)<15000) return;
+    windBusy = true;
+    var u = 'https://api.open-meteo.com/v1/forecast?latitude='+pos.lat.toFixed(3)+'&longitude='+pos.lng.toFixed(3)+'&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=mph';
+    fetch(u).then(function(r){ return r.json() }).then(function(d){
+      var c = d.current;
+      if(c && c.wind_speed_10m!=null && c.wind_direction_10m!=null){
+        windInfo = {dir:c.wind_direction_10m,spd:c.wind_speed_10m,gust:c.wind_gusts_10m};
+        windT = Date.now(); windPos = pos;
+      }
+      windBusy = false;
+    }).catch(function(){ windBusy = false; windT = Date.now()-240000; });
+  }
   function elevTxt(){ return (altFt==null ? '--' : altFt.toLocaleString('en-US'))+' FT'; }
   function fitBar(){ info.style.fontSize=''; }
   window.addEventListener('resize', fitBar);
   function showIdleBar(){
     info.className = 'route';
     info.style.display = 'flex';
-    info.innerHTML = '<span class="row"><span>--</span><span>--:--</span><span class="eta">--:--</span><span>'+elevTxt()+'</span></span>';
+    info.innerHTML = '<span class="row"><span>--</span><span>--:--</span><span class="eta">--:--</span><span>'+elevTxt()+'</span><span>'+windTxt()+'</span></span>';
     fitBar();
   }
   showIdleBar();
@@ -444,6 +468,7 @@
     var alt = p.coords.altitude; altFt = (typeof alt==='number' && !isNaN(alt)) ? Math.round(alt*3.28084) : null;
     updateCompass(p);
     updateLimit(mph);
+    loadWind();
     if(!routeMeta && info.className==='route') showIdleBar();
     if(routeLine) updateRouteInfo(mph);
     checkOffRoute();
@@ -736,7 +761,7 @@
     ['here','heretruck'].forEach(function(k){ if(layers[k] && map.hasLayer(layers[k])) map.removeLayer(layers[k]); });
     if(!hereKey){
       btns.forEach(function(b){ b.style.display='none' });
-      if(wasHere){ current='carto'; layers.carto.addTo(map); layers.carto.bringToBack(); markLayer(); }
+      if(wasHere){ current='osm'; layers.osm.addTo(map); layers.osm.bringToBack(); markLayer(); }
       return;
     }
     var base = 'https://maps.hereapi.com/v3/base/mc/{z}/{x}/{y}/png?size=512&style=explore.day&apiKey='+encodeURIComponent(hereKey);
@@ -1155,7 +1180,7 @@
     info.className = 'route';
     info.style.display = 'flex';
     clearTimeout(infoTimer);
-    info.innerHTML = '<span class="row"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+' '+dt.toUpperCase()+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span></span>';
+    info.innerHTML = '<span class="row"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+' '+dt.toUpperCase()+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span><span>'+windTxt()+'</span></span>';
     fitBar();
   }
 
