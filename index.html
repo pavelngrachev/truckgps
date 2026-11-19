@@ -397,7 +397,7 @@
 
   // --- position ---
   var me = null, acc = null, pos = null, follow = true, programmatic = false;
-  var info = document.getElementById('info'), recenter = document.getElementById('recenter'), gpsBtn = document.getElementById('gpsBtn'), gpsMsg = 'Waiting for GPS…', infoTimer = null, msgUntil = 0, altFt = null, lastBar = null;
+  var info = document.getElementById('info'), recenter = document.getElementById('recenter'), gpsBtn = document.getElementById('gpsBtn'), gpsMsg = 'Waiting for GPS…', infoTimer = null, msgUntil = 0, altFt = null, lastBar = null, accFt = null;
   function setInfo(a,b){
     info.className=''; info.style.fontSize=''; lastBar=null;
     info.innerHTML = a + (b?'<small>'+b+'</small>':'');
@@ -435,14 +435,16 @@
       windBusy = false;
     }).catch(function(){ windBusy = false; windT = Date.now()-240000; });
   }
+  function accTxt(){ return accFt==null ? '--' : '±'+accFt+' FT'; }
+  function updateAcc(){ var e = document.getElementById('accTxt'); if(e) e.textContent = accTxt(); }
   function elevTxt(){ return (altFt==null ? '--' : altFt.toLocaleString('en-US'))+' FT'; }
   function fitBar(){ info.style.fontSize=''; }
   window.addEventListener('resize', fitBar);
   function showIdleBar(){
     info.className = 'route';
     info.style.display = 'flex';
-    info.innerHTML = '<span class="row"><span>--</span><span>--:--</span><span class="eta">--:--</span><span>'+elevTxt()+'</span><span>'+windTxt()+'</span></span>';
-    fitBar();
+    info.innerHTML = '<span class="row"><span>--</span><span>--:--</span><span class="eta">--:--</span><span>'+elevTxt()+'</span><span>'+windTxt()+'</span><span id="accTxt"></span></span>';
+    fitBar(); updateAcc();
   }
   showIdleBar();
   gpsBtn.onclick = function(){ setInfo(gpsMsg) };
@@ -464,7 +466,8 @@
   else navigator.geolocation.watchPosition(function(p){
     pos = L.latLng(p.coords.latitude,p.coords.longitude);
     gpsBtn.classList.remove('bad');
-    gpsMsg = 'GPS OK, accuracy '+Math.round(p.coords.accuracy*3.28084)+' ft';
+    accFt = Math.round(p.coords.accuracy*3.28084);
+    gpsMsg = 'GPS OK, accuracy '+accFt+' ft';
     if(!me){
       me = L.marker(pos,{icon:L.divIcon({className:'',html:'<div class="arw" id="arw"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M12 2 L20 21 L12 16.5 L4 21 Z" fill="#2f8cff" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg></div>',iconSize:[30,30],iconAnchor:[15,15]})}).addTo(map);
       acc = L.circle(pos,{radius:p.coords.accuracy,weight:1,color:'#2f8cff',fillOpacity:.08}).addTo(map);
@@ -477,6 +480,7 @@
     updateCompass(p);
     updateLimit(mph);
     loadWind();
+    updateAcc();
     if(!routeMeta && info.className==='route') showIdleBar();
     if(routeLine) updateRouteInfo(mph);
     checkOffRoute();
@@ -1298,9 +1302,9 @@
     info.className = 'route';
     info.style.display = 'flex';
     clearTimeout(infoTimer);
-    var html = '<span class="row"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span><span>'+windTxt()+'</span>'+wxSpan()+'</span>';
+    var html = '<span class="row"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span><span>'+windTxt()+'</span>'+wxSpan()+'<span id="accTxt"></span></span>';
     if(html!==lastBar){ info.innerHTML = html; lastBar = html; }
-    fitBar();
+    fitBar(); updateAcc();
   }
 
   document.getElementById('go').onclick = function(){
