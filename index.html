@@ -68,8 +68,10 @@
   .fab.on{background:var(--accent);border-color:var(--accent);color:#1a1200}
   .fab.on small{color:#1a1200}
   #speedBtn,#curSpd,#limBtn{font-size:22px}
-  #recenter{border-color:var(--accent);color:var(--accent);opacity:.35}
-  #recenter.show{opacity:1}
+  #recenter{background:var(--panel);border-color:var(--line);color:#fff;opacity:.35}
+  #recenter.show{background:#e5484d;border-color:#e5484d;color:#fff;opacity:1}
+  #speedBtn,#cmpBtn{background:#e5484d;border-color:#e5484d;color:#fff}
+  #gpsBtn,#gpsBtn.bad{background:var(--panel);border-color:var(--line);color:var(--text)}
 
   /* popups next to the column */
   .pop{display:none;position:absolute;z-index:1100;right:84px;top:50%;transform:translateY(-50%);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;min-width:190px}
@@ -96,8 +98,8 @@
   #turn .ar{font-size:62px;line-height:1;color:var(--accent);font-weight:700}
   #turn .d{font-size:30px;font-weight:700;margin-top:2px;white-space:nowrap}
   #turn .t{font-size:24px;font-weight:700;line-height:1.2;min-width:0;overflow:hidden}
-  #trkPop,#wxPop{left:80px;right:80px;top:calc(env(safe-area-inset-top,0px) + var(--bh,60px)*2 + 24px);bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px) + 24px);transform:none;min-width:0;padding:8px;flex-direction:column;gap:6px;overflow:hidden}
-  #trkPop.open,#wxPop.open{display:flex}
+  #trkPop,#wxPop,#setPop,#infoPop{left:80px;right:80px;top:calc(env(safe-area-inset-top,0px) + var(--bh,60px)*2 + 24px);bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px) + 24px);transform:none;min-width:0;padding:8px;flex-direction:column;gap:6px;overflow:hidden}
+  #trkPop.open,#wxPop.open,#setPop.open,#infoPop.open{display:flex}
   .seg{display:flex;gap:6px;flex-wrap:wrap}
   .seg button{flex:1 1 auto;padding:9px 8px;font-size:14px;font-weight:700;border:2px solid var(--line);border-radius:9px;background:var(--bg);color:var(--text)}
   .seg button.on{border-color:var(--accent);color:var(--accent)}
@@ -105,12 +107,17 @@
   #trkList .it,#wxList .it{padding:9px 4px;border-bottom:1px solid var(--line)}
   #trkList .it b,#wxList .it b{display:block;font-size:14px}
   #trkList .it small,#wxList .it small{display:block;font-size:12px;color:var(--mute);line-height:1.3}
-  #trkClose,#wxClose{width:100%;padding:11px;font-size:16px;font-weight:600;border:0;border-radius:8px;background:var(--line);color:var(--text)}
+  #trkClose,#wxClose,#setClose,#infoClose{width:100%;padding:11px;font-size:16px;font-weight:600;border:0;border-radius:8px;background:var(--line);color:var(--text)}
   #map.rot{transition:transform .6s linear}
   #attr{position:fixed;left:80px;right:80px;bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px) + 14px);text-align:center;font-size:10px;color:#222;text-shadow:0 0 3px #fff,0 0 3px #fff;z-index:950;pointer-events:none}
   .arw{width:30px;height:30px}
   @keyframes blk{0%,100%{opacity:1}50%{opacity:.1}}
   .flash{animation:blk 1s infinite}
+  #setPop,#infoPop{overflow-y:auto}
+  #setPop input{width:100%;padding:12px;font-size:16px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
+  #infoList .irow{display:flex;justify-content:space-between;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line);font-size:15px}
+  #infoList .irow span{color:var(--mute)}
+  #infoList .irow b{font-weight:700;text-align:right}
   #statusScrim{position:fixed;left:0;right:0;top:0;height:calc(env(safe-area-inset-top,0px) + 14px);background:linear-gradient(rgba(0,0,0,.6),rgba(0,0,0,0));pointer-events:none;z-index:900}
   .me{width:18px;height:18px;border-radius:50%;background:#2f8cff;border:3px solid #fff;box-shadow:0 0 0 2px rgba(47,140,255,.4)}
 </style>
@@ -128,15 +135,6 @@
       <button id="go">Get route</button>
       <button id="clear" class="alt">Clear</button>
     </div>
-    <div class="haz"><span>Hazmat</span><button id="haz">No</button></div>
-    <div class="truck">
-      <span>Height <b>13'6"</b></span><span>Width <b>8'6"</b></span>
-      <span>Trailer <b>53'</b></span><span>Weight <b>80,000 lb</b></span>
-      <span>Steer <b>12,000</b></span><span>Drive <b>34,000</b></span>
-      <span>Trailer axles <b>34,000</b></span><span>Axles <b>5 (18 tires)</b></span>
-    </div>
-    <input id="hereKey" placeholder="HERE API key (stays only on this phone)" autocomplete="off" autocapitalize="off" spellcheck="false">
-    <div class="note" id="routeNote"></div>
   </div>
 </div>
 
@@ -164,6 +162,26 @@
   <div class="note" id="trkStatus"></div>
   <div id="trkList"></div>
   <button id="trkClose">Close</button>
+</div>
+
+<div class="pop" id="setPop">
+  <div class="note">Settings</div>
+    <div class="haz"><span>Hazmat</span><button id="haz">No</button></div>
+    <div class="truck">
+      <span>Height <b>13'6"</b></span><span>Width <b>8'6"</b></span>
+      <span>Trailer <b>53'</b></span><span>Weight <b>80,000 lb</b></span>
+      <span>Steer <b>12,000</b></span><span>Drive <b>34,000</b></span>
+      <span>Trailer axles <b>34,000</b></span><span>Axles <b>5 (18 tires)</b></span>
+    </div>
+    <input id="hereKey" placeholder="HERE API key (stays only on this phone)" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div class="note" id="routeNote"></div>
+  <button id="setClose">Close</button>
+</div>
+
+<div class="pop" id="infoPop">
+  <div class="note" id="infoHead">Information (live)</div>
+  <div id="infoList"></div>
+  <button id="infoClose">Close</button>
 </div>
 
 <div class="pop" id="wxPop">
@@ -200,13 +218,13 @@
     5:{id:'trkBtn',key:'e6',html:'POI',label:'Truck stops'}
   };
   specsR[n-1]={id:'recenter',html:'LOC',label:'Recenter'};
-  var specsL={0:{id:'gpsBtn',html:'GPS',label:'GPS status'}};
+  var specsL={0:{id:'gpsBtn',html:'INF',label:'Information'}};
   specsL[1]={id:'zinBtn',key:'e'+(n+2),html:'<span style="font-size:28px;line-height:1">+</span>',label:'Zoom in'};
   specsL[2]={id:'zoutBtn',key:'e'+(n+3),html:'<span style="font-size:28px;line-height:1">−</span><small id="scaleTxt">1 mi</small>',label:'Zoom out'};
-  specsL[3]={id:'cmpBtn',key:'e'+(n+4),html:'<span id="cmpTxt"><span style="color:#ff5a5f">N</span> --</span>',label:'Heading / map rotation'};
+  specsL[3]={id:'cmpBtn',key:'e'+(n+4),html:'<span id="cmpTxt">N--</span>',label:'Heading / map rotation'};
   specsL[n-2]={id:'curSpd',key:'e'+(2*n-1),html:'<span id="curSpdTxt">--</span>',label:'Current speed'};
   specsL[4]={id:'limBtn',key:'e'+(n+5),html:'<span id="limTxt">..</span>',label:'Speed limit'};
-  specsL[n-1]={id:'menu',html:'GO',label:'Search'};
+  specsL[n-1]={id:'setBtn',key:'menu',html:'SET',label:'Settings'};
 
   var btns={}, def={R:[],L:[]}, num=1;
   ['R','L'].forEach(function(k){
@@ -228,6 +246,12 @@
 
   // restore saved layout
   var plan={R:def.R.slice(),L:def.L.slice()};
+  // default order = the arrangement from the user's screenshot (used when nothing is saved on this phone/browser)
+  var pref={
+    R:['layerBtn','e6','e4','e5','e'+(n+2),'e'+(n+3),'recenter'],
+    L:['gpsBtn','menu','speedBtn','e'+(n+4),'wxBtn','e'+(n+5),'e'+(2*n-1)]
+  };
+  if(pref.R.length===n && pref.L.length===n && pref.R.concat(pref.L).every(function(k){return btns[k]})) plan=pref;
   try{
     var sv=JSON.parse(localStorage.getItem('layout3')||'null');
     if(sv){
@@ -358,9 +382,9 @@
   }catch(e){}
   layers[current].addTo(map);
 
-  var layerPop = document.getElementById('layerPop'), speedPop = document.getElementById('speedPop'), trkPop = document.getElementById('trkPop'), wxPop = document.getElementById('wxPop');
+  var layerPop = document.getElementById('layerPop'), speedPop = document.getElementById('speedPop'), trkPop = document.getElementById('trkPop'), wxPop = document.getElementById('wxPop'), setPop = document.getElementById('setPop'), infoPop = document.getElementById('infoPop');
   function closePops(except){
-    [layerPop,speedPop,trkPop,wxPop].forEach(function(p){ if(p!==except) p.classList.remove('open') });
+    [layerPop,speedPop,trkPop,wxPop,setPop,infoPop].forEach(function(p){ if(p!==except) p.classList.remove('open') });
   }
 
   // --- map type ---
@@ -388,7 +412,8 @@
     panelEl.classList.remove('open');
     if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
   }
-  document.getElementById('menu').onclick = function(){ closePops(); panelEl.classList.toggle('open') };
+  document.getElementById('setBtn').onclick = function(){ closePops(setPop); setPop.classList.toggle('open') };
+  document.getElementById('setClose').onclick = function(){ setPop.classList.remove('open') };
   document.getElementById('turn').onclick = function(){ if(panelEl.classList.contains('open')) closePanel(); else openPanel(); };
   map.on('click', closePanel);
 
@@ -397,7 +422,7 @@
 
   // --- position ---
   var me = null, acc = null, pos = null, follow = true, programmatic = false;
-  var info = document.getElementById('info'), recenter = document.getElementById('recenter'), gpsBtn = document.getElementById('gpsBtn'), gpsMsg = 'Waiting for GPS…', infoTimer = null, msgUntil = 0, altFt = null, lastBar = null, accFt = null;
+  var info = document.getElementById('info'), recenter = document.getElementById('recenter'), gpsBtn = document.getElementById('gpsBtn'), gpsMsg = 'Waiting for GPS…', infoTimer = null, msgUntil = 0, altFt = null, lastBar = null, accFt = null, gpsLost = true, lastFixT = 0;
   function setInfo(a,b){
     info.className=''; info.style.fontSize=''; lastBar=null;
     info.innerHTML = a + (b?'<small>'+b+'</small>':'');
@@ -435,8 +460,15 @@
       windBusy = false;
     }).catch(function(){ windBusy = false; windT = Date.now()-240000; });
   }
-  function accTxt(){ return accFt==null ? '--' : '±'+accFt+' FT'; }
-  function updateAcc(){ var e = document.getElementById('accTxt'); if(e) e.textContent = accTxt(); }
+  function accTxt(){ return gpsLost ? '±NS FT' : (accFt==null ? '--' : '±'+accFt+' FT'); }
+  function updateAcc(){
+    var e = document.getElementById('accTxt');
+    if(e){ e.textContent = accTxt(); e.style.color = gpsLost ? '#ff5a5f' : ''; }
+  }
+  setInterval(function(){
+    if(!gpsLost && Date.now()-lastFixT>10000) gpsLost = true;
+    updateAcc();
+  }, 2000);
   function elevTxt(){ return (altFt==null ? '--' : altFt.toLocaleString('en-US'))+' FT'; }
   function fitBar(){ info.style.fontSize=''; }
   window.addEventListener('resize', fitBar);
@@ -447,7 +479,7 @@
     fitBar(); updateAcc();
   }
   showIdleBar();
-  gpsBtn.onclick = function(){ setInfo(gpsMsg) };
+  gpsBtn.onclick = function(){ openInfo() };
 
   map.on('dragstart zoomstart', function(e){
     if(e.type==='dragstart' || (e.type==='zoomstart' && !programmatic)){follow=false;recenter.classList.add('show')}
@@ -467,6 +499,7 @@
     pos = L.latLng(p.coords.latitude,p.coords.longitude);
     gpsBtn.classList.remove('bad');
     accFt = Math.round(p.coords.accuracy*3.28084);
+    gpsLost = false; lastFixT = Date.now();
     gpsMsg = 'GPS OK, accuracy '+accFt+' ft';
     if(!me){
       me = L.marker(pos,{icon:L.divIcon({className:'',html:'<div class="arw" id="arw"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M12 2 L20 21 L12 16.5 L4 21 Z" fill="#2f8cff" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg></div>',iconSize:[30,30],iconAnchor:[15,15]})}).addTo(map);
@@ -475,6 +508,7 @@
     } else { me.setLatLng(pos); acc.setLatLng(pos).setRadius(p.coords.accuracy) }
     if(follow) goTo(pos);
     var mph = p.coords.speed!=null && p.coords.speed>=0 ? Math.round(p.coords.speed*2.23694) : null;
+    curMph = mph;
     var cst = document.getElementById('curSpdTxt'); if(cst) cst.textContent = mph!=null ? mph : '--';
     var alt = p.coords.altitude; altFt = (typeof alt==='number' && !isNaN(alt)) ? Math.round(alt*3.28084) : null;
     updateCompass(p);
@@ -487,6 +521,7 @@
     updateWs();
     updateTurn();
   }, function(err){
+    gpsLost = true; updateAcc();
     gpsBtn.classList.add('bad');
     gpsMsg = 'No GPS access. iPhone Settings → Safari → Location';
     setInfo('No GPS access','iPhone Settings → Safari → Location');
@@ -591,7 +626,7 @@
   function setCompassText(){
     var ct = document.getElementById('cmpTxt'); if(!ct) return;
     var d = lastHeading==null ? '--' : CARD[Math.round(lastHeading/45)%8];
-    ct.innerHTML = headingUp ? d : '<span style="color:#ff5a5f">N</span>'+d;
+    ct.innerHTML = headingUp ? d : 'N'+d;
   }
   function geometry(){
     if(!headingUp) return;
@@ -1143,6 +1178,38 @@
   info.addEventListener('click',function(){ if(routeMeta && info.className==='route') openWx(); });
   document.getElementById('wxClose').onclick = function(){ wxPop.classList.remove('open') };
   setInterval(function(){ if(routeMeta) loadRouteWx(); }, 600000);
+
+  // --- information window (IN button) ---
+  var curMph = null;
+  function infoRows(){
+    var heading = lastHeading==null ? '--' : Math.round(lastHeading)+'° '+CARD[Math.round(lastHeading/45)%8];
+    var wind = windInfo ? 'from '+CARD[Math.round(windInfo.dir/45)%8]+' '+Math.round(windInfo.spd)+' mph, gusts '+(windInfo.gust!=null ? Math.round(windInfo.gust) : '--') : '--';
+    var wxs = routeMeta ? (wxSpan().replace(/<[^>]*>/g,'') || 'loading') : 'no route';
+    return [
+      ['GPS', gpsMsg],
+      ['Accuracy', accFt==null ? '--' : '±'+accFt+' ft'],
+      ['Speed', curMph==null ? '--' : curMph+' mph'],
+      ['Speed limit', curLimit==null ? '--' : curLimit+' mph'],
+      ['Heading', heading],
+      ['Elevation', altFt==null ? '--' : altFt.toLocaleString('en-US')+' ft'],
+      ['Wind', wind],
+      ['Route weather', wxs],
+      ['Average speed', avgSpeed+' mph'],
+      ['Routing', hereKey ? 'HERE (truck)' : 'OSRM (car, test)']
+    ];
+  }
+  function renderInfo(){
+    var box = document.getElementById('infoList'); box.innerHTML = '';
+    infoRows().forEach(function(r){
+      var row = document.createElement('div'); row.className = 'irow';
+      var k = document.createElement('span'); k.textContent = r[0];
+      var v = document.createElement('b'); v.textContent = r[1];
+      row.appendChild(k); row.appendChild(v); box.appendChild(row);
+    });
+  }
+  function openInfo(){ closePops(infoPop); renderInfo(); infoPop.classList.add('open'); }
+  document.getElementById('infoClose').onclick = function(){ infoPop.classList.remove('open') };
+  setInterval(function(){ if(infoPop.classList.contains('open')) renderInfo(); }, 1000);
 
   // --- weigh stations (OpenStreetMap via Overpass, no key) ---
   var wsBtn = document.getElementById('wsBtn'), raBtn = document.getElementById('raBtn');
