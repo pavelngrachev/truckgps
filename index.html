@@ -96,19 +96,21 @@
   #turn .ar{font-size:62px;line-height:1;color:var(--accent);font-weight:700}
   #turn .d{font-size:30px;font-weight:700;margin-top:2px;white-space:nowrap}
   #turn .t{font-size:24px;font-weight:700;line-height:1.2;min-width:0;overflow:hidden}
-  #trkPop{left:80px;right:80px;top:calc(env(safe-area-inset-top,0px) + var(--bh,60px)*2 + 24px);bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px) + 24px);transform:none;min-width:0;padding:8px;flex-direction:column;gap:6px;overflow:hidden}
-  #trkPop.open{display:flex}
+  #trkPop,#wxPop{left:80px;right:80px;top:calc(env(safe-area-inset-top,0px) + var(--bh,60px)*2 + 24px);bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px) + 24px);transform:none;min-width:0;padding:8px;flex-direction:column;gap:6px;overflow:hidden}
+  #trkPop.open,#wxPop.open{display:flex}
   .seg{display:flex;gap:6px;flex-wrap:wrap}
   .seg button{flex:1 1 auto;padding:9px 8px;font-size:14px;font-weight:700;border:2px solid var(--line);border-radius:9px;background:var(--bg);color:var(--text)}
   .seg button.on{border-color:var(--accent);color:var(--accent)}
-  #trkList{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0}
-  #trkList .it{padding:9px 4px;border-bottom:1px solid var(--line)}
-  #trkList .it b{display:block;font-size:14px}
-  #trkList .it small{display:block;font-size:12px;color:var(--mute);line-height:1.3}
-  #trkClose{width:100%;padding:11px;font-size:16px;font-weight:600;border:0;border-radius:8px;background:var(--line);color:var(--text)}
+  #trkList,#wxList{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0}
+  #trkList .it,#wxList .it{padding:9px 4px;border-bottom:1px solid var(--line)}
+  #trkList .it b,#wxList .it b{display:block;font-size:14px}
+  #trkList .it small,#wxList .it small{display:block;font-size:12px;color:var(--mute);line-height:1.3}
+  #trkClose,#wxClose{width:100%;padding:11px;font-size:16px;font-weight:600;border:0;border-radius:8px;background:var(--line);color:var(--text)}
   #map.rot{transition:transform .6s linear}
   #attr{position:fixed;left:80px;right:80px;bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px) + 14px);text-align:center;font-size:10px;color:#222;text-shadow:0 0 3px #fff,0 0 3px #fff;z-index:950;pointer-events:none}
   .arw{width:30px;height:30px}
+  @keyframes blk{0%,100%{opacity:1}50%{opacity:.1}}
+  .flash{animation:blk 1s infinite}
   #statusScrim{position:fixed;left:0;right:0;top:0;height:calc(env(safe-area-inset-top,0px) + 14px);background:linear-gradient(rgba(0,0,0,.6),rgba(0,0,0,0));pointer-events:none;z-index:900}
   .me{width:18px;height:18px;border-radius:50%;background:#2f8cff;border:3px solid #fff;box-shadow:0 0 0 2px rgba(47,140,255,.4)}
 </style>
@@ -162,6 +164,12 @@
   <div class="note" id="trkStatus"></div>
   <div id="trkList"></div>
   <button id="trkClose">Close</button>
+</div>
+
+<div class="pop" id="wxPop">
+  <div class="note" id="wxHead">Weather on your route</div>
+  <div id="wxList"></div>
+  <button id="wxClose">Close</button>
 </div>
 
 <div class="pop" id="speedPop">
@@ -350,9 +358,9 @@
   }catch(e){}
   layers[current].addTo(map);
 
-  var layerPop = document.getElementById('layerPop'), speedPop = document.getElementById('speedPop'), trkPop = document.getElementById('trkPop');
+  var layerPop = document.getElementById('layerPop'), speedPop = document.getElementById('speedPop'), trkPop = document.getElementById('trkPop'), wxPop = document.getElementById('wxPop');
   function closePops(except){
-    [layerPop,speedPop,trkPop].forEach(function(p){ if(p!==except) p.classList.remove('open') });
+    [layerPop,speedPop,trkPop,wxPop].forEach(function(p){ if(p!==except) p.classList.remove('open') });
   }
 
   // --- map type ---
@@ -389,9 +397,9 @@
 
   // --- position ---
   var me = null, acc = null, pos = null, follow = true, programmatic = false;
-  var info = document.getElementById('info'), recenter = document.getElementById('recenter'), gpsBtn = document.getElementById('gpsBtn'), gpsMsg = 'Waiting for GPS…', infoTimer = null, msgUntil = 0, altFt = null;
+  var info = document.getElementById('info'), recenter = document.getElementById('recenter'), gpsBtn = document.getElementById('gpsBtn'), gpsMsg = 'Waiting for GPS…', infoTimer = null, msgUntil = 0, altFt = null, lastBar = null;
   function setInfo(a,b){
-    info.className=''; info.style.fontSize='';
+    info.className=''; info.style.fontSize=''; lastBar=null;
     info.innerHTML = a + (b?'<small>'+b+'</small>':'');
     info.style.display = 'flex';
     clearTimeout(infoTimer);
@@ -1022,6 +1030,116 @@
     turnEl.style.display = 'flex';
   }
 
+  // --- weather along the route (Open-Meteo forecast + NWS alerts) ---
+  var wxItems = [], wxState = 'none', wxSeq = 0;
+  var WXC = {green:'#3ddc84', yellow:'#ffd23f', red:'#ff5a5f', purple:'#c084fc'};
+  function pointAt(al){
+    var hi = cum.length-1;
+    if(hi<1) return routePts[0];
+    if(al<=0) return routePts[0];
+    if(al>=cum[hi]) return routePts[hi];
+    var lo = 0;
+    while(hi-lo>1){ var mid=(lo+hi)>>1; if(cum[mid]<=al) lo=mid; else hi=mid; }
+    var f = (al-cum[lo])/((cum[hi]-cum[lo])||1);
+    return L.latLng(routePts[lo].lat+(routePts[hi].lat-routePts[lo].lat)*f, routePts[lo].lng+(routePts[hi].lng-routePts[lo].lng)*f);
+  }
+  function classifyFc(t,p,c){
+    if(c===66||c===67||c===56||c===57) return {type:'ICE',text:'Freezing rain / drizzle',color:'purple',flash:true,rank:90};
+    if(c===75||c===86||((c===71||c===73||c===77||c===85)&&p>=2)) return {type:'S',text:'Heavy snow',color:'red',flash:true,rank:85};
+    if(t!=null && t<=1 && (p>0 || c===48 || (c>=51&&c<=65) || (c>=80&&c<=82))) return {type:'BI',text:'Black ice risk (cold and wet)',color:'purple',flash:true,rank:80};
+    if(c>=95) return {type:'TS',text:'Thunderstorm',color:'red',flash:false,rank:70};
+    if(c===71||c===73||c===77||c===85) return {type:'SNOW',text:'Snow',color:'yellow',flash:false,rank:40};
+    if(p>=7.6) return {type:'RAIN',text:'Heavy rain',color:'red',flash:false,rank:60};
+    if(p>=2.5) return {type:'RAIN',text:'Moderate rain',color:'yellow',flash:false,rank:50};
+    if(p>=0.1) return {type:'RAIN',text:'Light rain',color:'green',flash:false,rank:30};
+    return null;
+  }
+  function classifyAlert(ev){
+    if(/tornado/i.test(ev)) return {type:'T',color:'red',flash:true,rank:100};
+    if(/hurricane|tropical storm|storm surge/i.test(ev)) return {type:'H',color:'red',flash:true,rank:99};
+    if(/ice storm|freezing rain|freezing drizzle|freezing fog/i.test(ev)) return {type:'ICE',color:'purple',flash:true,rank:91};
+    if(/blizzard|winter storm|heavy snow|snow squall/i.test(ev)) return {type:'S',color:'red',flash:true,rank:86};
+    if(/severe thunderstorm/i.test(ev)) return {type:'TS',color:'red',flash:false,rank:71};
+    return null;
+  }
+  function loadRouteWx(){
+    if(!routeMeta || !cum.length) return;
+    var my = ++wxSeq; wxState = 'loading';
+    var a = pos ? snap(pos.lat,pos.lng).along : 0, total = cum[cum.length-1];
+    var pts = [], step = 20*1609.34, maxD = 300*1609.34;
+    for(var d=0; d<=maxD && a+d<=total; d+=step){
+      var ll = pointAt(a+d);
+      pts.push({al:a+d,lat:ll.lat,lng:ll.lng,eta:Date.now()+(d/1609.34)/avgSpeed*3600000});
+    }
+    if(!pts.length){ wxItems=[]; wxState='ok'; return }
+    var u = 'https://api.open-meteo.com/v1/forecast?latitude='+pts.map(function(p){return p.lat.toFixed(3)}).join(',')
+      +'&longitude='+pts.map(function(p){return p.lng.toFixed(3)}).join(',')
+      +'&hourly=temperature_2m,precipitation,weather_code&timeformat=unixtime&timezone=GMT&forecast_days=2';
+    var fc = fetch(u).then(function(r){return r.json()}).catch(function(){return null});
+    var alertPts = pts.filter(function(p,i){return i%2===0}).slice(0,8);
+    var al = Promise.all(alertPts.map(function(p){
+      return fetch('https://api.weather.gov/alerts/active?point='+p.lat.toFixed(4)+','+p.lng.toFixed(4))
+        .then(function(r){return r.json()}).then(function(j){return {p:p,f:j.features||[],ok:true}})
+        .catch(function(){return {p:p,f:[],ok:false}});
+    }));
+    Promise.all([fc,al]).then(function(res){
+      if(my!==wxSeq) return;
+      var items = [], d = res[0];
+      if(d){
+        (Array.isArray(d) ? d : [d]).forEach(function(loc,i){
+          var p = pts[i]; if(!p || !loc.hourly) return;
+          var H = loc.hourly, t = H.time||[], best = 0, bd = 1e18;
+          for(var k=0;k<t.length;k++){ var dd=Math.abs(t[k]*1000-p.eta); if(dd<bd){bd=dd;best=k} }
+          var r = classifyFc(H.temperature_2m[best],H.precipitation[best],H.weather_code[best]);
+          if(r){ r.al=p.al; r.eta=p.eta; items.push(r); }
+        });
+      }
+      var anyAlertOk = false;
+      res[1].forEach(function(x){
+        if(x.ok) anyAlertOk = true;
+        x.f.forEach(function(ft){
+          var pr = ft.properties||{}, c = classifyAlert(pr.event||''); if(!c) return;
+          var s0 = Date.parse(pr.onset||pr.effective||''), e0 = Date.parse(pr.ends||pr.expires||'');
+          if(!isNaN(s0) && x.p.eta < s0-1800000) return;
+          if(!isNaN(e0) && x.p.eta > e0) return;
+          c.text = pr.event; c.al = x.p.al; c.eta = x.p.eta; items.push(c);
+        });
+      });
+      wxItems = items;
+      wxState = (d || anyAlertOk) ? 'ok' : 'error';
+      lastBar = null; updateRouteInfo(null,true);
+    });
+  }
+  function wxSpan(){
+    if(!routeMeta || wxState!=='ok') return '';
+    var a = pos ? snap(pos.lat,pos.lng).along : 0, best = null;
+    wxItems.forEach(function(it){
+      if(it.al < a-1500) return;
+      if(!best || it.rank>best.rank || (it.rank===best.rank && it.al<best.al)) best = it;
+    });
+    if(!best) return '<span>CLR</span>';
+    var d = Math.max(0,(best.al-a)/1609.34);
+    return '<span class="'+(best.flash?'flash':'')+'" style="color:'+WXC[best.color]+'">'+best.type+(d<0.5 ? ' NOW' : ' '+Math.round(d))+'</span>';
+  }
+  function openWx(){
+    closePops(wxPop);
+    var a = pos ? snap(pos.lat,pos.lng).along : 0;
+    var list = wxItems.filter(function(it){return it.al>=a-1500}).sort(function(x,y){return x.al-y.al});
+    var box = document.getElementById('wxList'); box.innerHTML = '';
+    document.getElementById('wxHead').textContent = wxState==='loading' ? 'Loading weather…' : (wxState==='error' ? 'Could not load weather' : (list.length ? 'Weather ahead (at your average speed)' : 'No rain, snow, ice or warnings found ahead'));
+    list.slice(0,40).forEach(function(it){
+      var el = document.createElement('div'); el.className = 'it';
+      var b = document.createElement('b'); b.textContent = it.type+' · '+it.text; b.style.color = WXC[it.color]||'';
+      var s1 = document.createElement('small'), d = Math.max(0,(it.al-a)/1609.34);
+      s1.textContent = (d<0.5 ? 'Now' : Math.round(d)+' mi')+' · '+new Date(it.eta).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      el.appendChild(b); el.appendChild(s1); box.appendChild(el);
+    });
+    wxPop.classList.add('open');
+  }
+  info.addEventListener('click',function(){ if(routeMeta && info.className==='route') openWx(); });
+  document.getElementById('wxClose').onclick = function(){ wxPop.classList.remove('open') };
+  setInterval(function(){ if(routeMeta) loadRouteWx(); }, 600000);
+
   // --- weigh stations (OpenStreetMap via Overpass, no key) ---
   var wsBtn = document.getElementById('wsBtn'), raBtn = document.getElementById('raBtn');
   var rests = [], raInfo = 'Build a route first';
@@ -1154,7 +1272,7 @@
     routePts = route.geometry.coordinates.map(function(c){return L.latLng(c[1],c[0])});
     routeLine = L.polyline(routePts,{color:'#2f8cff',weight:7,opacity:.9}).addTo(map);
     routeMeta = {dist:route.distance,dur:route.duration};
-    prepRoute(); prepMans(route); loadStations();
+    prepRoute(); prepMans(route); loadStations(); loadRouteWx();
     if(fit && !headingUp){ follow=false; recenter.classList.add('show'); programmatic=true; skipSave=true; map.fitBounds(routeLine.getBounds(),{padding:[60,90]}); setTimeout(function(){programmatic=false},800); setTimeout(function(){skipSave=false},1500) }
     updateRouteInfo(null,true);
     updateTurn();
@@ -1180,7 +1298,8 @@
     info.className = 'route';
     info.style.display = 'flex';
     clearTimeout(infoTimer);
-    info.innerHTML = '<span class="row"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span><span>'+windTxt()+'</span></span>';
+    var html = '<span class="row"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span><span>'+windTxt()+'</span>'+wxSpan()+'</span>';
+    if(html!==lastBar){ info.innerHTML = html; lastBar = html; }
     fitBar();
   }
 
@@ -1208,7 +1327,7 @@
     if(destMarker) map.removeLayer(destMarker);
     routeLine=null;destMarker=null;dest=null;routeMeta=null;routePts=[];
     stations=[]; rests=[]; setWs('W--',null); setRa('R--');
-    mans=[]; updateTurn();
+    mans=[]; updateTurn(); wxItems=[]; wxState='none';
     setInfo('Route cleared');
   };
 
