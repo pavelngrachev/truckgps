@@ -1301,13 +1301,14 @@
     stations=[]; rests=[];
     stRaw.forEach(function(st){
       var r=snap(st.lat,st.lng);
-      if(st.kind==='ra'){
-        // keep only rest areas on the right side of the direction of travel
-        if(r.off<=600 && (r.side<0 || r.off<40)) rests.push({id:st.id,along:r.along});
-      } else if(r.off<=600) stations.push({id:st.id,along:r.along});
+      // only places on the right side of your direction of travel, close to the route
+      if(r.off>600 || !(r.side<0 || r.off<40)) return;
+      (st.kind==='ra' ? rests : stations).push({id:st.id,along:r.along});
     });
-    stations.sort(function(a,b){return a.along-b.along});
-    rests.sort(function(a,b){return a.along-b.along});
+    [stations,rests].forEach(function(list){
+      list.sort(function(x,y){return x.along-y.along});
+      for(var i=list.length-1;i>0;i--){ if(list[i].along-list[i-1].along<500) list.splice(i,1); }
+    });
   }
   function setWs(text,d){
     if(!wsBtn) return;
@@ -1344,32 +1345,55 @@
   if(wsBtn) wsBtn.onclick = function(){ setInfo(wsInfo,'OpenStreetMap data, may be incomplete'); };
   if(raBtn) raBtn.onclick = function(){ setInfo(raInfo,'Right side of your direction of travel'); };
 
+  var osmRaw = [], hereRaw = [], hereAt = 0;
+  function parseOsmStations(d){
+    return (d.elements||[]).map(function(el){
+      var la=el.lat!=null?el.lat:(el.center&&el.center.lat), lo=el.lon!=null?el.lon:(el.center&&el.center.lon);
+      return la==null?null:{id:el.type+el.id,lat:la,lng:lo,kind:(el.tags&&el.tags.highway==='rest_area')?'ra':'ws'};
+    }).filter(Boolean);
+  }
+  // HERE places: weigh stations (400-4200-0048) and rest areas (400-4300-xxxx) along the next 150 miles
+  function hereAlong(){
+    var a0 = (pos && cum.length) ? snap(pos.lat,pos.lng).along : 0, total = cum[cum.length-1], jobs = [];
+    var cats = '400-4200-0048,400-4300-0000,400-4300-0199,400-4300-0200,400-4300-0201,400-4300-0202';
+    for(var d=0; d<=150*1609.34 && a0+d<=total; d+=12*1609.34){
+      var ll = pointAt(a0+d);
+      jobs.push(hereBrowse(ll.lat,ll.lng,10000,cats));
+    }
+    return Promise.all(jobs).then(function(all){
+      var seen = {}, out = [];
+      all.forEach(function(items){
+        items.forEach(function(it){
+          if(seen[it.id] || !it.position) return; seen[it.id] = 1;
+          var isW = (it.categories||[]).some(function(c){ return c.id==='400-4200-0048' });
+          out.push({id:it.id,lat:it.position.lat,lng:it.position.lng,kind:isW?'ws':'ra'});
+        });
+      });
+      return out;
+    });
+  }
   function loadStations(){
     var mySeq=++wsSeq;
     var minLa=90,maxLa=-90,minLo=180,maxLo=-180;
     routePts.forEach(function(p){ if(p.lat<minLa)minLa=p.lat; if(p.lat>maxLa)maxLa=p.lat; if(p.lng<minLo)minLo=p.lng; if(p.lng>maxLo)maxLo=p.lng; });
-    if(stBox && minLa>=stBox[0] && minLo>=stBox[1] && maxLa<=stBox[2] && maxLo<=stBox[3]){
-      computeStations(); wsState='ok'; updateWs(); return;
-    }
+    var cached = !!(stBox && minLa>=stBox[0] && minLo>=stBox[1] && maxLa<=stBox[2] && maxLo<=stBox[3]);
+    var hereFresh = !!hereKey && (Date.now()-hereAt>60000 || !hereRaw.length);
+    if(cached && !hereFresh){ computeStations(); wsState='ok'; updateWs(); return; }
     var m=0.15, box=[minLa-m,minLo-m,maxLa+m,maxLo+m], bb=box.join(',');
     var q='[out:json][timeout:25];(node["highway"="weigh_station"]('+bb+');way["highway"="weigh_station"]('+bb+');node["amenity"="weighbridge"]('+bb+');way["amenity"="weighbridge"]('+bb+');node["highway"="rest_area"]('+bb+');way["highway"="rest_area"]('+bb+'););out center;';
     wsState='loading'; updateWs();
-    var hosts=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
-    function tryHost(i){
-      if(i>=hosts.length) return Promise.reject(new Error('overpass'));
-      return fetch(hosts[i]+'?data='+encodeURIComponent(q)).then(function(r){
-        if(!r.ok) throw new Error('http'); return r.json();
-      }).catch(function(){ return tryHost(i+1) });
-    }
-    ovp(q).then(function(d){
+    var osmP = cached ? Promise.resolve(null) : ovp(q).then(parseOsmStations).catch(function(){ return null });
+    var hereP = hereFresh ? hereAlong().catch(function(){ return null }) : Promise.resolve(null);
+    Promise.all([osmP,hereP]).then(function(res){
       if(mySeq!==wsSeq) return;
-      stRaw=(d.elements||[]).map(function(el){
-        var la=el.lat!=null?el.lat:(el.center&&el.center.lat), lo=el.lon!=null?el.lon:(el.center&&el.center.lon);
-        return la==null?null:{id:el.type+el.id,lat:la,lng:lo,kind:(el.tags&&el.tags.highway==='rest_area')?'ra':'ws'};
-      }).filter(Boolean);
-      stBox=box; computeStations(); wsState='ok'; updateWs();
-    }).catch(function(){ if(mySeq!==wsSeq) return; wsState='error'; updateWs(); });
+      if(res[0]){ osmRaw = res[0]; stBox = box; }
+      if(res[1]){ hereRaw = res[1]; hereAt = Date.now(); }
+      stRaw = osmRaw.concat(hereRaw);
+      if(!cached && !res[0] && !res[1] && !stRaw.length){ wsState='error'; updateWs(); return; }
+      computeStations(); wsState='ok'; updateWs();
+    });
   }
+  setInterval(function(){ if(routeMeta && hereKey) loadStations(); }, 1200000);
 
   // --- sound alert (needs one tap on the page first to unlock on iPhone) ---
   var actx=null, unlocked=false;
