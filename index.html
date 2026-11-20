@@ -369,10 +369,10 @@
   map.on('zoomend',function(){ if(skipSave) return; try{ localStorage.setItem('zoom',map.getZoom()); }catch(e){} });
   document.addEventListener('gesturestart',function(e){ e.preventDefault() });
   var layers = {
-    streets: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Esri'}),
-    osm: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}),
-    topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'© OpenTopoMap, OSM'}),
-    sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18,attribution:'Esri'})
+    streets: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,detectRetina:true,attribution:'Esri'}),
+    osm: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,detectRetina:true,attribution:'© OpenStreetMap'}),
+    topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,detectRetina:true,attribution:'© OpenTopoMap, OSM'}),
+    sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18,detectRetina:true,attribution:'Esri'})
   };
   var current = 'osm', pendingLayer = null;
   try{
@@ -551,6 +551,25 @@
   map.on('zoomend moveend', updateScale);
   updateScale();
 
+  // --- Overpass (OpenStreetMap data) with timeouts and several servers ---
+  function ovp(q){
+    var hosts=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+    function tryHost(i){
+      if(i>=hosts.length) return Promise.reject(new Error('overpass'));
+      var ctl = ('AbortController' in window) ? new AbortController() : null;
+      var timer = setTimeout(function(){ if(ctl) ctl.abort() }, 22000);
+      return fetch(hosts[i]+'?data='+encodeURIComponent(q), ctl ? {signal:ctl.signal} : {}).then(function(r){
+        clearTimeout(timer);
+        if(!r.ok) throw new Error('http');
+        return r.json();
+      }).then(function(d){
+        if(d && d.remark && /error|timed out|too many|out of memory/i.test(d.remark) && !(d.elements && d.elements.length)) throw new Error('server');
+        return d;
+      }).catch(function(){ clearTimeout(timer); return tryHost(i+1); });
+    }
+    return tryHost(0);
+  }
+
   // --- speed limit (OpenStreetMap maxspeed, loaded around your position) ---
   var slWays = null, slCenter = null, slBusy = false, slRetry = 0, curLimit = null, slFailed = false, slLast = 0;
   function overpass(q){
@@ -561,7 +580,7 @@
         if(!r.ok) throw new Error('http'); return r.json();
       }).catch(function(){ return tryHost(i+1) });
     }
-    return tryHost(0);
+    return ovp(q);
   }
   function parseMph(v){
     if(!v) return null;
@@ -928,7 +947,49 @@
         if(!r.ok) throw new Error('http'); return r.json();
       }).catch(function(){ return tryHost(i+1) });
     }
-    return tryHost(0);
+    return ovp(q);
+  }
+  function hereBrowse(lat,lng,r,cats){
+    var u = 'https://browse.search.hereapi.com/v1/browse?at='+lat.toFixed(5)+','+lng.toFixed(5)
+      +'&in=circle:'+lat.toFixed(5)+','+lng.toFixed(5)+';r='+r+'&categories='+cats+'&limit=100&apiKey='+encodeURIComponent(hereKey);
+    return fetch(u).then(function(res){
+      return res.json().then(function(d){
+        if(!res.ok) throw new Error((d && (d.title || d.error_description)) || 'HERE '+res.status);
+        return d.items||[];
+      });
+    });
+  }
+  function hereStopOf(it){
+    var chains = (it.chains||[]).map(function(c){return c.name}).join(' ');
+    var a = it.address||{};
+    return {id:it.id,lat:it.position.lat,lng:it.position.lng,cat:classify({name:it.title||'',brand:chains}),
+      name:it.title||'Truck stop',city:a.city ? a.city+(a.stateCode ? ', '+a.stateCode : '') : ''};
+  }
+  function hereStops(mode){
+    var cats = '700-7900-0132';
+    if(mode==='route'){
+      var a0 = (pos && cum.length) ? snap(pos.lat,pos.lng).along : 0, total = cum[cum.length-1], jobs = [];
+      for(var d=0; d<=250*1609.34 && a0+d<=total; d+=25*1609.34){
+        var ll = pointAt(a0+d);
+        jobs.push(hereBrowse(ll.lat,ll.lng,10000,cats));
+      }
+      return Promise.all(jobs).then(function(all){
+        var seen = {}, out = [];
+        all.forEach(function(items){ items.forEach(function(it){ if(!seen[it.id] && it.position){ seen[it.id]=1; out.push(hereStopOf(it)); } }) });
+        return out;
+      });
+    }
+    var c = pos || map.getCenter();
+    return hereBrowse(c.lat,c.lng,40000,cats).then(function(items){ return items.filter(function(it){return it.position}).map(hereStopOf) });
+  }
+  function trkFromOsm(d){
+    return (d.elements||[]).map(function(el){
+      var la = el.lat!=null ? el.lat : (el.center&&el.center.lat), lo = el.lon!=null ? el.lon : (el.center&&el.center.lon);
+      if(la==null) return null;
+      var t = el.tags||{};
+      var city = t['addr:city'] ? t['addr:city']+(t['addr:state']?', '+t['addr:state']:'') : '';
+      return {id:el.type+el.id,lat:la,lng:lo,cat:classify(t),name:t.name||t.brand||'Truck stop',city:city};
+    }).filter(Boolean);
   }
   function trkStatus(t){ document.getElementById('trkStatus').textContent = t }
   function trkLoad(){
@@ -944,17 +1005,14 @@
     }
     if(trkData && key===trkKey){ trkRender(); return }
     trkStatus('Loading…'); document.getElementById('trkList').innerHTML='';
-    trkFetch(area).then(function(d){
+    key += hereKey ? 'H' : '';
+    var src = hereKey
+      ? hereStops(trkMode).catch(function(){ return trkFetch(area).then(trkFromOsm) })
+      : trkFetch(area).then(trkFromOsm);
+    src.then(function(list){
       if(my!==trkSeq) return;
-      trkData = (d.elements||[]).map(function(el){
-        var la = el.lat!=null ? el.lat : (el.center&&el.center.lat), lo = el.lon!=null ? el.lon : (el.center&&el.center.lon);
-        if(la==null) return null;
-        var t = el.tags||{};
-        var city = t['addr:city'] ? t['addr:city']+(t['addr:state']?', '+t['addr:state']:'') : '';
-        return {id:el.type+el.id,lat:la,lng:lo,cat:classify(t),name:t.name||t.brand||'Truck stop',city:city};
-      }).filter(Boolean);
-      trkKey = key; trkRender();
-    }).catch(function(){ if(my!==trkSeq) return; trkStatus('Could not load truck stops') });
+      trkData = list; trkKey = key; trkRender();
+    }).catch(function(){ if(my!==trkSeq) return; trkStatus('Could not load truck stops (map data servers are busy). Try again in a minute.') });
   }
   function trkRender(){
     var list=[], a = (pos && routeMeta && cum.length) ? snap(pos.lat,pos.lng).along : 0, c = pos || map.getCenter();
@@ -1303,7 +1361,7 @@
         if(!r.ok) throw new Error('http'); return r.json();
       }).catch(function(){ return tryHost(i+1) });
     }
-    tryHost(0).then(function(d){
+    ovp(q).then(function(d){
       if(mySeq!==wsSeq) return;
       stRaw=(d.elements||[]).map(function(el){
         var la=el.lat!=null?el.lat:(el.center&&el.center.lat), lo=el.lon!=null?el.lon:(el.center&&el.center.lon);
