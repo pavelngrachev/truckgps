@@ -21,7 +21,25 @@
   /* search panel (top) */
   .top{position:absolute;z-index:1200;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top,0px) + 8px) 8px 8px;pointer-events:none}
   .search{pointer-events:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px;display:none;flex-direction:column;gap:6px}
-  .search.open{display:flex}
+  .search.open{display:flex;position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);bottom:calc(env(safe-area-inset-bottom,0px) + 8px);border:2px solid var(--line);border-radius:14px;padding:10px;overflow:hidden}
+  .phead{display:flex;justify-content:space-between;align-items:center}
+  .phead b{font-size:19px}
+  .phead button{padding:8px 14px;border:0;border-radius:8px;background:var(--line);color:var(--text);font-size:15px;font-weight:600}
+  .frow{display:flex;align-items:center;gap:8px}
+  .frow label{width:78px;flex:none;font-weight:700;font-size:16px}
+  .fld{position:relative;flex:1;min-width:0}
+  .fld input{padding-right:46px !important}
+  .clr{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;border-radius:17px;background:var(--line);color:var(--text);font-size:15px}
+  .sech{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px;color:var(--mute);margin-top:4px}
+  .sech button{border:0;background:none;color:var(--mute);font-size:13px}
+  .plist{overflow-y:auto;-webkit-overflow-scrolling:touch}
+  #savedList{max-height:150px;flex:none}
+  .plist.hist{flex:1;min-height:0}
+  .pit{display:flex;align-items:center;gap:8px;padding:11px 4px;border-bottom:1px solid var(--line)}
+  .pit .pt{flex:1;min-width:0}
+  .pit b{display:block;font-size:16px}
+  .pit small{display:block;font-size:12px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pit .px{border:0;background:var(--line);color:var(--text);width:32px;height:32px;border-radius:16px;flex:none}
   .search input{width:100%;padding:12px;font-size:16px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
   .row{display:flex;gap:6px}
   .row button{flex:1;padding:12px;font-size:16px;font-weight:600;border:0;border-radius:8px;background:var(--accent);color:#1a1200}
@@ -127,14 +145,22 @@
 
 <div class="top">
   <div class="search" id="panel">
-    <input id="from" placeholder="From (empty = my location)" autocomplete="off">
+    <div class="phead"><b>Route</b><button id="panelClose">Close</button></div>
+    <div class="frow"><label>From:</label><div class="fld"><input id="from" placeholder="empty = my location" autocomplete="off" autocapitalize="off"><button class="clr" data-for="from">✕</button></div></div>
     <div class="sug" id="sugFrom"></div>
-    <input id="to" placeholder="To: city or address" autocomplete="off">
+    <div class="frow"><label>To:</label><div class="fld"><input id="to" placeholder="city or address" autocomplete="off"><button class="clr" data-for="to">✕</button></div></div>
     <div class="sug" id="sugTo"></div>
+    <div class="frow"><label>Lat/Lon:</label><div class="fld"><input id="coord" placeholder="30.3322, -81.6557" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="clr" data-for="coord">✕</button></div></div>
     <div class="row">
       <button id="go">Get route</button>
+      <button id="savePlace" class="alt">Save</button>
       <button id="clear" class="alt">Clear</button>
     </div>
+    <div class="note" id="pstat"></div>
+    <div class="sech"><span>Saved</span></div>
+    <div class="plist" id="savedList"></div>
+    <div class="sech"><span>History</span><button id="histClear">Clear history</button></div>
+    <div class="plist hist" id="histList"></div>
   </div>
 </div>
 
@@ -407,7 +433,7 @@
   markLayer();
 
   var panelEl = document.getElementById('panel');
-  function openPanel(){ closePops(); panelEl.classList.add('open'); }
+  function openPanel(){ closePops(); panelEl.classList.add('open'); if(typeof renderLists==='function') renderLists(); }
   function closePanel(){
     panelEl.classList.remove('open');
     if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
@@ -801,6 +827,8 @@
   attachSuggest(document.getElementById('to'), document.getElementById('sugTo'));
 
   function getPoint(input){
+    var cc = parseCoord(input.value);
+    if(cc) return Promise.resolve(L.latLng(cc[0],cc[1]));
     if(input.dataset.lat) return Promise.resolve(L.latLng(+input.dataset.lat,+input.dataset.lng));
     return geocode(input.value.trim());
   }
@@ -1046,6 +1074,7 @@
       el.onclick = function(){
         follow=false; recenter.classList.add('show');
         programmatic=true; skipSave=true; map.setView([x.lat,x.lng],15); setTimeout(function(){programmatic=false},800); setTimeout(function(){skipSave=false},1500);
+        addHistory({text:x.name+(x.city?', '+x.city:''),lat:x.lat,lng:x.lng}); renderLists();
         trkPop.classList.remove('open');
       };
       box.appendChild(el);
@@ -1456,13 +1485,96 @@
     fitBar(); updateAcc();
   }
 
+  // --- route window: coordinates, saved places, history ---
+  function parseCoord(t){
+    var m = /^\s*(-?\d{1,2}(?:\.\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/.exec(t||'');
+    if(!m) return null;
+    var la = +m[1], lo = +m[2];
+    return (Math.abs(la)>90 || Math.abs(lo)>180) ? null : [la,lo];
+  }
+  function lsGet(k){ try{ return JSON.parse(localStorage.getItem(k)||'[]') }catch(e){ return [] } }
+  function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)) }catch(e){} }
+  var places = lsGet('places'), histArr = lsGet('history');
+  function sameSpot(a,b){
+    return (a.lat!=null && b.lat!=null) ? (Math.abs(a.lat-b.lat)<0.0005 && Math.abs(a.lng-b.lng)<0.0005) : a.text===b.text;
+  }
+  function addHistory(e){
+    histArr = histArr.filter(function(h){ return !sameSpot(h,e) });
+    histArr.unshift(e);
+    if(histArr.length>50) histArr.length = 50;
+    lsSet('history',histArr);
+  }
+  function pmsg(t){ var e = document.getElementById('pstat'); if(e) e.textContent = t||''; }
+  function useEntry(e){
+    var toI = document.getElementById('to');
+    toI.value = e.text;
+    if(e.lat!=null){ toI.dataset.lat = e.lat; toI.dataset.lng = e.lng; } else { delete toI.dataset.lat; delete toI.dataset.lng; }
+    document.getElementById('coord').value = '';
+    document.getElementById('sugTo').style.display = 'none';
+    pmsg('Selected. Tap Get route.');
+  }
+  function fillList(boxId, arr, removable){
+    var box = document.getElementById(boxId); box.innerHTML = '';
+    if(!arr.length){
+      var em = document.createElement('div'); em.className = 'pit';
+      var sm = document.createElement('small'); sm.textContent = removable ? 'Nothing saved yet. Type a place and tap Save.' : 'No trips yet.';
+      em.appendChild(sm); box.appendChild(em); return;
+    }
+    arr.forEach(function(e,i){
+      var row = document.createElement('div'); row.className = 'pit';
+      var pt = document.createElement('div'); pt.className = 'pt';
+      var b = document.createElement('b'); b.textContent = removable ? e.name : e.text;
+      var sm = document.createElement('small'); sm.textContent = removable ? e.text : (e.lat!=null ? e.lat.toFixed(4)+', '+e.lng.toFixed(4) : '');
+      pt.appendChild(b); pt.appendChild(sm);
+      pt.onclick = function(){ useEntry(e) };
+      row.appendChild(pt);
+      if(removable){
+        var x = document.createElement('button'); x.className = 'px'; x.textContent = '✕';
+        x.onclick = function(){ places.splice(i,1); lsSet('places',places); renderLists(); };
+        row.appendChild(x);
+      }
+      box.appendChild(row);
+    });
+  }
+  function renderLists(){ fillList('savedList',places,true); fillList('histList',histArr,false); }
+  renderLists();
+  document.getElementById('histClear').onclick = function(){ histArr = []; lsSet('history',histArr); renderLists(); };
+  document.getElementById('panelClose').onclick = function(){ closePanel(); };
+  document.querySelectorAll('.clr').forEach(function(b){
+    b.onclick = function(){
+      var i = document.getElementById(b.dataset.for);
+      i.value = ''; delete i.dataset.lat; delete i.dataset.lng;
+      var sg = document.getElementById('sug'+(b.dataset.for==='from' ? 'From' : 'To')); if(sg) sg.style.display = 'none';
+      pmsg(''); i.focus();
+    };
+  });
+  document.getElementById('savePlace').onclick = function(){
+    var toI = document.getElementById('to'), cv = document.getElementById('coord').value.trim(), cc = cv ? parseCoord(cv) : null, text, pt;
+    if(cv && !cc){ pmsg('Coordinates look like 30.3322, -81.6557'); return }
+    if(cc){ text = cv; pt = Promise.resolve({lat:cc[0],lng:cc[1]}); }
+    else if(toI.value.trim()){
+      text = toI.value.trim();
+      pt = toI.dataset.lat ? Promise.resolve({lat:+toI.dataset.lat,lng:+toI.dataset.lng}) : geocode(text).then(function(ll){ return {lat:ll.lat,lng:ll.lng} });
+    } else { pmsg('Type an address or coordinates first'); return }
+    pt.then(function(q){
+      var name = window.prompt('Name for this place', text.slice(0,40));
+      if(name===null) return;
+      places.unshift({name:(name.trim()||text),text:text,lat:q.lat,lng:q.lng});
+      lsSet('places',places); renderLists(); pmsg('Saved.');
+    }).catch(function(e){ pmsg(e.message) });
+  };
+
   document.getElementById('go').onclick = function(){
-    var fromQ = document.getElementById('from').value.trim();
-    var toQ = document.getElementById('to').value.trim();
-    if(!toQ){setInfo('Enter a destination');return}
-    setInfo('Building route…');
-    var pFrom = fromQ ? getPoint(document.getElementById('from')) : Promise.resolve(pos);
-    Promise.all([pFrom, getPoint(document.getElementById('to'))]).then(function(r){
+    var fromI = document.getElementById('from'), toI = document.getElementById('to'), coordI = document.getElementById('coord');
+    var fromQ = fromI.value.trim(), toQ = toI.value.trim(), coordQ = coordI.value.trim();
+    if(!toQ && !coordQ){ pmsg('Enter a destination or coordinates'); return }
+    var cc = coordQ ? parseCoord(coordQ) : null;
+    if(coordQ && !cc){ pmsg('Coordinates look like 30.3322, -81.6557'); return }
+    pmsg('Building route…'); setInfo('Building route…');
+    var pFrom = fromQ ? getPoint(fromI) : Promise.resolve(pos);
+    var pTo = cc ? Promise.resolve(L.latLng(cc[0],cc[1])) : getPoint(toI);
+    var label = cc ? coordQ : toQ;
+    Promise.all([pFrom, pTo]).then(function(r){
       if(!r[0]) throw new Error('No GPS fix yet, enter a From address');
       dest = r[1];
       if(destMarker) map.removeLayer(destMarker);
@@ -1470,9 +1582,11 @@
       return fetchRoute(r[0], dest);
     }).then(function(route){
       draw(route,true);
+      addHistory({text:label,lat:dest.lat,lng:dest.lng}); renderLists();
       if(route.warn) setInfo('Warning','This route violates a truck restriction');
+      pmsg('');
       document.getElementById('panel').classList.remove('open');
-    }).catch(function(e){setInfo('Error',e.message)});
+    }).catch(function(e){ pmsg(e.message); setInfo('Error',e.message) });
   };
 
   document.getElementById('clear').onclick = function(){
