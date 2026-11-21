@@ -35,7 +35,8 @@
   .sech button{border:0;background:none;color:var(--mute);font-size:13px}
   .plist{overflow-y:auto;-webkit-overflow-scrolling:touch}
   #savedList{max-height:150px;flex:none}
-  .plist.hist{flex:1;min-height:0}
+  .plist.hist{flex:1;min-height:0;touch-action:pan-y;overscroll-behavior:contain}
+  .search{touch-action:manipulation}
   .pit{display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--line)}
   .plist{margin-top:-3px}
   .pit .pt{flex:1;min-width:0}
@@ -127,6 +128,7 @@
   #trkList .it,#wxList .it{padding:9px 4px;border-bottom:1px solid var(--line)}
   #trkList .it b,#wxList .it b{display:block;font-size:14px}
   #trkList .it small,#wxList .it small{display:block;font-size:12px;color:var(--mute);line-height:1.3}
+  #trkList .mapb{flex:none;border:0;border-radius:8px;background:var(--line);color:var(--text);padding:9px 11px;font-size:13px;font-weight:600}
   #trkClose,#wxClose,#setClose,#infoClose{width:100%;padding:11px;font-size:16px;font-weight:600;border:0;border-radius:8px;background:var(--line);color:var(--text)}
   #map.rot{transition:transform .6s linear}
   #attr{position:fixed;left:80px;right:80px;bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px) + 14px);text-align:center;font-size:10px;color:#222;text-shadow:0 0 3px #fff,0 0 3px #fff;z-index:950;pointer-events:none}
@@ -1073,13 +1075,28 @@
       var b = document.createElement('b'); b.textContent = x.name;
       var s1 = document.createElement('small'); s1.textContent = BNAME[x.cat]+(x.city?' · '+x.city:'');
       var s2 = document.createElement('small'); s2.textContent = line2;
-      el.appendChild(b); el.appendChild(s1); el.appendChild(s2);
-      el.onclick = function(){
+      var pt = document.createElement('div'); pt.style.flex = '1'; pt.style.minWidth = '0';
+      pt.appendChild(b); pt.appendChild(s1); pt.appendChild(s2);
+      el.style.display = 'flex'; el.style.alignItems = 'center'; el.style.gap = '8px';
+      el.appendChild(pt);
+      // tap the place = drive there (also goes into History)
+      pt.onclick = function(){
+        var toI = document.getElementById('to'), fromI = document.getElementById('from');
+        toI.value = x.name+(x.city ? ', '+x.city : ''); toI.dataset.lat = x.lat; toI.dataset.lng = x.lng;
+        fromI.value = ''; delete fromI.dataset.lat; delete fromI.dataset.lng;
+        document.getElementById('coord').value = '';
+        trkPop.classList.remove('open');
+        document.getElementById('go').onclick();
+      };
+      // small button = just look at it on the map
+      var mb = document.createElement('button'); mb.className = 'mapb'; mb.textContent = 'Map';
+      mb.onclick = function(ev){
+        ev.stopPropagation();
         follow=false; recenter.classList.add('show');
         programmatic=true; skipSave=true; map.setView([x.lat,x.lng],15); setTimeout(function(){programmatic=false},800); setTimeout(function(){skipSave=false},1500);
-        addHistory({text:x.name+(x.city?', '+x.city:''),lat:x.lat,lng:x.lng}); renderLists();
         trkPop.classList.remove('open');
       };
+      el.appendChild(mb);
       box.appendChild(el);
     });
   }
@@ -1512,7 +1529,7 @@
   function addHistory(e){
     histArr = histArr.filter(function(h){ return !sameSpot(h,e) });
     histArr.unshift(e);
-    if(histArr.length>50) histArr.length = 50;
+    if(histArr.length>100) histArr.length = 100;
     lsSet('history',histArr);
   }
   function pmsg(t){ var e = document.getElementById('pstat'); if(e) e.textContent = t||''; }
@@ -1540,17 +1557,24 @@
       pt.appendChild(b); if(sm.textContent) pt.appendChild(sm);
       pt.onclick = function(){ useEntry(e) };
       row.appendChild(pt);
-      if(removable){
-        var x = document.createElement('button'); x.className = 'px'; x.textContent = '✕';
-        x.onclick = function(){ places.splice(i,1); lsSet('places',places); renderLists(); };
-        row.appendChild(x);
-      }
+      var x = document.createElement('button'); x.className = 'px'; x.textContent = '✕';
+      x.onclick = function(ev){
+        ev.stopPropagation();
+        if(!window.confirm(removable ? 'Are you sure you want to delete this saved place?' : 'Are you sure you want to delete this from history?')) return;
+        if(removable){ places.splice(i,1); lsSet('places',places); }
+        else { histArr.splice(i,1); lsSet('history',histArr); }
+        renderLists();
+      };
+      row.appendChild(x);
       box.appendChild(row);
     });
   }
   function renderLists(){ fillList('savedList',places,true); fillList('histList',histArr,false); }
   renderLists();
-  document.getElementById('histClear').onclick = function(){ histArr = []; lsSet('history',histArr); renderLists(); };
+  document.getElementById('histClear').onclick = function(){
+    if(!window.confirm('Are you sure you want to delete all history?')) return;
+    histArr = []; lsSet('history',histArr); renderLists();
+  };
   document.getElementById('panelClose').onclick = function(){ closePanel(); };
   document.querySelectorAll('.clr').forEach(function(b){
     b.onclick = function(){
