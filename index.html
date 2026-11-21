@@ -145,19 +145,18 @@
 
 <div class="top">
   <div class="search" id="panel">
-    <div class="phead"><b>Route</b><button id="panelClose">Close</button></div>
+    <div class="row">
+      <button id="go">Route</button>
+      <button id="savePlace" class="alt">Save</button>
+      <button id="panelClose" class="alt">Close</button>
+    </div>
     <div class="frow"><label>From:</label><div class="fld"><input id="from" placeholder="empty = my location" autocomplete="off" autocapitalize="off"><button class="clr" data-for="from">✕</button></div></div>
     <div class="sug" id="sugFrom"></div>
     <div class="frow"><label>To:</label><div class="fld"><input id="to" placeholder="city or address" autocomplete="off"><button class="clr" data-for="to">✕</button></div></div>
     <div class="sug" id="sugTo"></div>
     <div class="frow"><label>Lat/Lon:</label><div class="fld"><input id="coord" placeholder="30.3322, -81.6557" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="clr" data-for="coord">✕</button></div></div>
-    <div class="row">
-      <button id="go">Get route</button>
-      <button id="savePlace" class="alt">Save</button>
-      <button id="clear" class="alt">Clear</button>
-    </div>
     <div class="note" id="pstat"></div>
-    <div class="sech"><span>Saved</span></div>
+    <div class="sech"><span>Saved</span><button id="clear">Clear route</button></div>
     <div class="plist" id="savedList"></div>
     <div class="sech"><span>History</span><button id="histClear">Clear history</button></div>
     <div class="plist hist" id="histList"></div>
