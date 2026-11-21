@@ -40,6 +40,8 @@
   .pit{display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--line)}
   .plist{margin-top:-3px}
   .pit .pt{flex:1;min-width:0}
+  #histList .pit{min-height:56px}
+  .pit .num{width:30px;flex:none;color:var(--mute);font-size:13px;text-align:right}
   .pit b{display:block;font-size:16px;white-space:normal;overflow-wrap:anywhere}
   .pit small{display:block;font-size:12px;color:var(--mute);white-space:normal;overflow-wrap:anywhere}
   .pit .px{border:0;background:var(--line);color:var(--text);width:34px;height:34px;border-radius:17px;font-size:15px;flex:none}
@@ -157,7 +159,7 @@
     <div class="note" id="pstat"></div>
     <div class="sech"><span>Saved</span></div>
     <div class="plist" id="savedList"></div>
-    <div class="sech"><span>History</span><button id="histClear">Clear history</button></div>
+    <div class="sech"><span>History</span></div>
     <div class="plist hist" id="histList"></div>
     <div class="row">
       <button id="go">Route</button>
@@ -1527,6 +1529,7 @@
     return (a.lat!=null && b.lat!=null) ? (Math.abs(a.lat-b.lat)<0.0005 && Math.abs(a.lng-b.lng)<0.0005) : a.text===b.text;
   }
   function addHistory(e){
+    e.t = Date.now();
     histArr = histArr.filter(function(h){ return !sameSpot(h,e) });
     histArr.unshift(e);
     if(histArr.length>100) histArr.length = 100;
@@ -1541,20 +1544,28 @@
     document.getElementById('sugTo').style.display = 'none';
     pmsg('');
   }
+  function dateStr(t){
+    if(!t) return '';
+    var d = new Date(t);
+    return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  }
   function fillList(boxId, arr, removable){
-    var box = document.getElementById(boxId); box.innerHTML = '';
-    if(!arr.length){
+    var box = document.getElementById(boxId), hist = !removable;
+    box.innerHTML = '';
+    if(!arr.length && removable){
       var em = document.createElement('div'); em.className = 'pit';
-      var sm = document.createElement('small'); sm.textContent = removable ? 'Nothing saved yet. Type a place and tap Save.' : 'No trips yet.';
-      em.appendChild(sm); box.appendChild(em); return;
+      var sm0 = document.createElement('small'); sm0.textContent = 'Nothing saved yet. Type a place and tap Save.';
+      em.appendChild(sm0); box.appendChild(em);
     }
     arr.forEach(function(e,i){
       var row = document.createElement('div'); row.className = 'pit';
+      if(hist){ var nm = document.createElement('span'); nm.className = 'num'; nm.textContent = i+1; row.appendChild(nm); }
       var pt = document.createElement('div'); pt.className = 'pt';
       var showName = removable && e.name && e.name!==e.text;
       var b = document.createElement('b'); b.textContent = showName ? e.name : e.text;
-      var sm = document.createElement('small'); sm.textContent = showName ? e.text : '';
-      pt.appendChild(b); if(sm.textContent) pt.appendChild(sm);
+      pt.appendChild(b);
+      var sub = showName ? e.text : (hist ? dateStr(e.t) : '');
+      if(sub){ var sm = document.createElement('small'); sm.textContent = sub; pt.appendChild(sm); }
       pt.onclick = function(){ useEntry(e) };
       row.appendChild(pt);
       var x = document.createElement('button'); x.className = 'px'; x.textContent = '✕';
@@ -1568,13 +1579,16 @@
       row.appendChild(x);
       box.appendChild(row);
     });
+    if(hist){
+      for(var k=arr.length; k<100; k++){
+        var er = document.createElement('div'); er.className = 'pit empty';
+        var n2 = document.createElement('span'); n2.className = 'num'; n2.textContent = k+1;
+        er.appendChild(n2); box.appendChild(er);
+      }
+    }
   }
   function renderLists(){ fillList('savedList',places,true); fillList('histList',histArr,false); }
   renderLists();
-  document.getElementById('histClear').onclick = function(){
-    if(!window.confirm('Are you sure you want to delete all history?')) return;
-    histArr = []; lsSet('history',histArr); renderLists();
-  };
   document.getElementById('panelClose').onclick = function(){ closePanel(); };
   document.querySelectorAll('.clr').forEach(function(b){
     b.onclick = function(){
