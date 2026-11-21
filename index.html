@@ -113,7 +113,7 @@
   #info.route small{font-size:12px;font-weight:600;color:var(--mute)}
   #turn{position:absolute;z-index:1000;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);height:calc(var(--bh,60px)*2 + 8px);background:var(--panel);border:2px solid var(--line);border-radius:14px;display:flex;align-items:center;gap:14px;padding:0 14px;overflow:hidden}
   #turn .tl{display:flex;flex-direction:column;align-items:center;min-width:104px}
-  #turn .ar{font-size:62px;line-height:1;color:var(--accent);font-weight:700}
+  #turn .ar{font-size:54px;line-height:1;color:var(--accent);font-weight:700}
   #turn .d{font-size:30px;font-weight:700;margin-top:2px;white-space:nowrap}
   #turn .t{font-size:24px;font-weight:700;line-height:1.2;min-width:0;overflow:hidden}
   #trkPop,#wxPop,#setPop,#infoPop{left:80px;right:80px;top:calc(env(safe-area-inset-top,0px) + var(--bh,60px)*2 + 24px);bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px) + 24px);transform:none;min-width:0;padding:8px;flex-direction:column;gap:6px;overflow:hidden}
@@ -232,7 +232,7 @@
   var done=document.getElementById('editDone'), body=document.body;
   var GAP=8, W=64;
   var rr=zR.getBoundingClientRect();
-  var NN=Math.max(8,Math.floor((rr.height+10)/70)+1);
+  var NN=Math.max(8,Math.min(11,Math.floor((rr.height+8)/52)));
   var n=Math.max(7,NN-3);
 
   var specsR={
@@ -245,11 +245,11 @@
   };
   specsR[n-1]={id:'recenter',html:'LOC',label:'Recenter'};
   var specsL={0:{id:'gpsBtn',html:'INF',label:'Information'}};
-  specsL[1]={id:'zinBtn',key:'e'+(n+2),html:'<span style="font-size:28px;line-height:1">+</span>',label:'Zoom in'};
-  specsL[2]={id:'zoutBtn',key:'e'+(n+3),html:'<span style="font-size:28px;line-height:1">−</span><small id="scaleTxt">1 mi</small>',label:'Zoom out'};
-  specsL[3]={id:'cmpBtn',key:'e'+(n+4),html:'<span id="cmpTxt">N--</span>',label:'Heading / map rotation'};
-  specsL[n-2]={id:'curSpd',key:'e'+(2*n-1),html:'<span id="curSpdTxt">--</span>',label:'Current speed'};
-  specsL[4]={id:'limBtn',key:'e'+(n+5),html:'<span id="limTxt">..</span>',label:'Speed limit'};
+  specsL[1]={id:'zinBtn',key:'e9',html:'<span style="font-size:28px;line-height:1">+</span>',label:'Zoom in'};
+  specsL[2]={id:'zoutBtn',key:'e10',html:'<span style="font-size:28px;line-height:1">−</span><small id="scaleTxt">1 mi</small>',label:'Zoom out'};
+  specsL[3]={id:'cmpBtn',key:'e11',html:'<span id="cmpTxt">N--</span>',label:'Heading / map rotation'};
+  specsL[n-2]={id:'curSpd',key:'e13',html:'<span id="curSpdTxt">--</span>',label:'Current speed'};
+  specsL[4]={id:'limBtn',key:'e12',html:'<span id="limTxt">..</span>',label:'Speed limit'};
   specsL[n-1]={id:'setBtn',key:'menu',html:'SET',label:'Settings'};
 
   var btns={}, def={R:[],L:[]}, num=1;
@@ -274,9 +274,10 @@
   var plan={R:def.R.slice(),L:def.L.slice()};
   // default order = the arrangement from the user's screenshot (used when nothing is saved on this phone/browser)
   var pref={
-    R:['layerBtn','e6','e4','e5','e'+(n+2),'e'+(n+3),'recenter'],
-    L:['gpsBtn','menu','speedBtn','e'+(n+4),'wxBtn','e'+(n+5),'e'+(2*n-1)]
+    R:['layerBtn','e6','e4','e5','e9','e10','e7','recenter'],
+    L:['gpsBtn','menu','speedBtn','e11','wxBtn','e12','e14','e13']
   };
+  if(n===7){ pref.R=pref.R.filter(function(k){return k!=='e7'}); pref.L=pref.L.filter(function(k){return k!=='e14'}); }
   if(pref.R.length===n && pref.L.length===n && pref.R.concat(pref.L).every(function(k){return btns[k]})) plan=pref;
   try{
     var sv=JSON.parse(localStorage.getItem('layout3')||'null');
