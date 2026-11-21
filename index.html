@@ -30,16 +30,18 @@
   .fld{position:relative;flex:1;min-width:0}
   .fld input{padding-right:46px !important}
   .clr{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;border-radius:17px;background:var(--line);color:var(--text);font-size:15px}
-  .sech{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px;color:var(--mute);margin-top:4px}
+  .sech{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px;color:var(--mute);margin-top:2px}
+  #pstat:empty{display:none}
   .sech button{border:0;background:none;color:var(--mute);font-size:13px}
   .plist{overflow-y:auto;-webkit-overflow-scrolling:touch}
   #savedList{max-height:150px;flex:none}
   .plist.hist{flex:1;min-height:0}
-  .pit{display:flex;align-items:center;gap:8px;padding:11px 4px;border-bottom:1px solid var(--line)}
+  .pit{display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--line)}
+  .plist{margin-top:-3px}
   .pit .pt{flex:1;min-width:0}
-  .pit b{display:block;font-size:16px}
-  .pit small{display:block;font-size:12px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .pit .px{border:0;background:var(--line);color:var(--text);width:32px;height:32px;border-radius:16px;flex:none}
+  .pit b{display:block;font-size:16px;white-space:normal;overflow-wrap:anywhere}
+  .pit small{display:block;font-size:12px;color:var(--mute);white-space:normal;overflow-wrap:anywhere}
+  .pit .px{border:0;background:var(--line);color:var(--text);width:34px;height:34px;border-radius:17px;font-size:15px;flex:none}
   .search input{width:100%;padding:12px;font-size:16px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
   .row{display:flex;gap:6px}
   .row button{flex:1;padding:12px;font-size:16px;font-weight:600;border:0;border-radius:8px;background:var(--accent);color:#1a1200}
@@ -115,7 +117,7 @@
   #turn .tl{display:flex;flex-direction:column;align-items:center;min-width:104px}
   #turn .ar{font-size:54px;line-height:1;color:var(--accent);font-weight:700}
   #turn .d{font-size:30px;font-weight:700;margin-top:2px;white-space:nowrap}
-  #turn .t{font-size:24px;font-weight:700;line-height:1.2;min-width:0;overflow:hidden}
+  #turn .t{flex:1;font-size:24px;font-weight:700;line-height:1.2;min-width:0;overflow:hidden}
   #trkPop,#wxPop,#setPop,#infoPop{left:80px;right:80px;top:calc(env(safe-area-inset-top,0px) + var(--bh,60px)*2 + 24px);bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px) + 24px);transform:none;min-width:0;padding:8px;flex-direction:column;gap:6px;overflow:hidden}
   #trkPop.open,#wxPop.open,#setPop.open,#infoPop.open{display:flex}
   .seg{display:flex;gap:6px;flex-wrap:wrap}
@@ -145,21 +147,21 @@
 
 <div class="top">
   <div class="search" id="panel">
+    <div class="frow"><label>Lat/Lon:</label><div class="fld"><input id="coord" placeholder="30.3322, -81.6557" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="clr" data-for="coord">✕</button></div></div>
+    <div class="frow"><label>From:</label><div class="fld"><input id="from" placeholder="My location" autocomplete="off" autocapitalize="off"><button class="clr" data-for="from">✕</button></div></div>
+    <div class="sug" id="sugFrom"></div>
+    <div class="frow"><label>To:</label><div class="fld"><input id="to" placeholder="City or address" autocomplete="off"><button class="clr" data-for="to">✕</button></div></div>
+    <div class="sug" id="sugTo"></div>
+    <div class="note" id="pstat"></div>
+    <div class="sech"><span>Saved</span></div>
+    <div class="plist" id="savedList"></div>
+    <div class="sech"><span>History</span><button id="histClear">Clear history</button></div>
+    <div class="plist hist" id="histList"></div>
     <div class="row">
       <button id="go">Route</button>
       <button id="savePlace" class="alt">Save</button>
       <button id="panelClose" class="alt">Close</button>
     </div>
-    <div class="frow"><label>From:</label><div class="fld"><input id="from" placeholder="empty = my location" autocomplete="off" autocapitalize="off"><button class="clr" data-for="from">✕</button></div></div>
-    <div class="sug" id="sugFrom"></div>
-    <div class="frow"><label>To:</label><div class="fld"><input id="to" placeholder="city or address" autocomplete="off"><button class="clr" data-for="to">✕</button></div></div>
-    <div class="sug" id="sugTo"></div>
-    <div class="frow"><label>Lat/Lon:</label><div class="fld"><input id="coord" placeholder="30.3322, -81.6557" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="clr" data-for="coord">✕</button></div></div>
-    <div class="note" id="pstat"></div>
-    <div class="sech"><span>Saved</span><button id="clear">Clear route</button></div>
-    <div class="plist" id="savedList"></div>
-    <div class="sech"><span>History</span><button id="histClear">Clear history</button></div>
-    <div class="plist hist" id="histList"></div>
   </div>
 </div>
 
@@ -200,6 +202,7 @@
     </div>
     <input id="hereKey" placeholder="HERE API key (stays only on this phone)" autocomplete="off" autocapitalize="off" spellcheck="false">
     <div class="note" id="routeNote"></div>
+  <div class="row"><button id="clear" class="alt">Clear route</button></div>
   <button id="setClose">Close</button>
 </div>
 
@@ -1143,10 +1146,17 @@
     var mi = m/1609.34;
     return (mi<10 ? mi.toFixed(1) : Math.round(mi))+' mi';
   }
+  function fitTurn(){
+    var t = turnEl.querySelector('.t'); if(!t) return;
+    var fs = 24; t.style.fontSize = fs+'px';
+    var maxH = turnEl.clientHeight - 12;
+    while(t.scrollHeight > maxH && fs > 10){ fs--; t.style.fontSize = fs+'px'; }
+  }
   function updateTurn(){
     if(!routeMeta || !mans.length){
       turnEl.innerHTML = '<div class="tl"><div class="ar">↑</div><div class="d">--</div></div><div class="t">No route. Tap GO to set a destination</div>';
       turnEl.style.display = 'flex';
+      fitTurn();
       return;
     }
     var a = pos ? snap(pos.lat,pos.lng).along : 0, next = null;
@@ -1154,6 +1164,7 @@
     if(!next) next = mans[mans.length-1];
     turnEl.innerHTML = '<div class="tl"><div class="ar">'+arrowFor(next)+'</div><div class="d">'+fmtDist(Math.max(0,next.along-a))+'</div></div><div class="t">'+cap(textFor(next).replace(/</g,'&lt;'))+'</div>';
     turnEl.style.display = 'flex';
+    fitTurn();
   }
 
   // --- weather along the route (Open-Meteo forecast + NWS alerts) ---
@@ -1511,7 +1522,7 @@
     if(e.lat!=null){ toI.dataset.lat = e.lat; toI.dataset.lng = e.lng; } else { delete toI.dataset.lat; delete toI.dataset.lng; }
     document.getElementById('coord').value = '';
     document.getElementById('sugTo').style.display = 'none';
-    pmsg('Selected. Tap Get route.');
+    pmsg('');
   }
   function fillList(boxId, arr, removable){
     var box = document.getElementById(boxId); box.innerHTML = '';
@@ -1523,9 +1534,10 @@
     arr.forEach(function(e,i){
       var row = document.createElement('div'); row.className = 'pit';
       var pt = document.createElement('div'); pt.className = 'pt';
-      var b = document.createElement('b'); b.textContent = removable ? e.name : e.text;
-      var sm = document.createElement('small'); sm.textContent = removable ? e.text : (e.lat!=null ? e.lat.toFixed(4)+', '+e.lng.toFixed(4) : '');
-      pt.appendChild(b); pt.appendChild(sm);
+      var showName = removable && e.name && e.name!==e.text;
+      var b = document.createElement('b'); b.textContent = showName ? e.name : e.text;
+      var sm = document.createElement('small'); sm.textContent = showName ? e.text : '';
+      pt.appendChild(b); if(sm.textContent) pt.appendChild(sm);
       pt.onclick = function(){ useEntry(e) };
       row.appendChild(pt);
       if(removable){
