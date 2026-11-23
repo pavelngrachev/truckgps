@@ -37,11 +37,11 @@
   #savedList{max-height:150px;flex:none}
   .plist.hist{flex:1;min-height:0;touch-action:pan-y;overscroll-behavior:contain}
   .search{touch-action:manipulation}
-  .pit{display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--line)}
+  .pit{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
   .plist{margin-top:-3px}
   .pit .pt{flex:1;min-width:0}
   #histList .pit{min-height:56px}
-  .pit .num{width:30px;flex:none;color:var(--mute);font-size:13px;text-align:right}
+  .pit .num{width:34px;flex:none;color:var(--mute);font-size:14px;text-align:left}
   .pit b{display:block;font-size:16px;white-space:normal;overflow-wrap:anywhere}
   .pit small{display:block;font-size:12px;color:var(--mute);white-space:normal;overflow-wrap:anywhere}
   .pit .px{border:0;background:var(--line);color:var(--text);width:34px;height:34px;border-radius:17px;font-size:15px;flex:none}
@@ -91,9 +91,10 @@
   .fab.on{background:var(--accent);border-color:var(--accent);color:#1a1200}
   .fab.on small{color:#1a1200}
   #speedBtn,#curSpd,#limBtn{font-size:22px}
-  #recenter{background:var(--panel);border-color:var(--line);color:#fff;opacity:.35}
+  #recenter{background:var(--panel);border-color:var(--line);color:#fff;opacity:1}
   #recenter.show{background:#e5484d;border-color:#e5484d;color:#fff;opacity:1}
-  #speedBtn,#cmpBtn{background:#e5484d;border-color:#e5484d;color:#fff}
+  #speedBtn{background:#e5484d;border-color:#e5484d;color:#fff}
+  #wxBtn.on{background:#e5484d;border-color:#e5484d;color:#fff}
   #gpsBtn,#gpsBtn.bad{background:var(--panel);border-color:var(--line);color:var(--text)}
 
   /* popups next to the column */
@@ -253,7 +254,7 @@
   var specsL={0:{id:'gpsBtn',html:'INF',label:'Information'}};
   specsL[1]={id:'zinBtn',key:'e9',html:'<span style="font-size:28px;line-height:1">+</span>',label:'Zoom in'};
   specsL[2]={id:'zoutBtn',key:'e10',html:'<span style="font-size:28px;line-height:1">−</span><small id="scaleTxt">1 mi</small>',label:'Zoom out'};
-  specsL[3]={id:'cmpBtn',key:'e11',html:'<span id="cmpTxt">N--</span>',label:'Heading / map rotation'};
+  specsL[3]={id:'cmpBtn',key:'e11',html:'<span id="cmpTxt"><span style="color:#ff5a5f">N</span>--</span>',label:'Heading / map rotation'};
   specsL[n-2]={id:'curSpd',key:'e13',html:'<span id="curSpdTxt">--</span>',label:'Current speed'};
   specsL[4]={id:'limBtn',key:'e12',html:'<span id="limTxt">..</span>',label:'Speed limit'};
   specsL[n-1]={id:'setBtn',key:'menu',html:'SET',label:'Settings'};
@@ -280,8 +281,8 @@
   var plan={R:def.R.slice(),L:def.L.slice()};
   // default order = the arrangement from the user's screenshot (used when nothing is saved on this phone/browser)
   var pref={
-    R:['layerBtn','e6','e4','e5','e9','e10','e7','recenter'],
-    L:['gpsBtn','menu','speedBtn','e11','wxBtn','e12','e14','e13']
+    L:['layerBtn','gpsBtn','menu','speedBtn','e12','e14','e7','e13'],
+    R:['e6','e4','e5','wxBtn','e11','recenter','e9','e10']
   };
   if(n===7){ pref.R=pref.R.filter(function(k){return k!=='e7'}); pref.L=pref.L.filter(function(k){return k!=='e14'}); }
   if(pref.R.length===n && pref.L.length===n && pref.R.concat(pref.L).every(function(k){return btns[k]})) plan=pref;
@@ -483,11 +484,11 @@
     if(!pos || windBusy) return;
     if(windPos && Date.now()-windT<300000 && windPos.distanceTo(pos)<15000) return;
     windBusy = true;
-    var u = 'https://api.open-meteo.com/v1/forecast?latitude='+pos.lat.toFixed(3)+'&longitude='+pos.lng.toFixed(3)+'&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=mph';
+    var u = 'https://api.open-meteo.com/v1/forecast?latitude='+pos.lat.toFixed(3)+'&longitude='+pos.lng.toFixed(3)+'&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl&wind_speed_unit=mph';
     fetch(u).then(function(r){ return r.json() }).then(function(d){
       var c = d.current;
       if(c && c.wind_speed_10m!=null && c.wind_direction_10m!=null){
-        windInfo = {dir:c.wind_direction_10m,spd:c.wind_speed_10m,gust:c.wind_gusts_10m};
+        windInfo = {dir:c.wind_direction_10m,spd:c.wind_speed_10m,gust:c.wind_gusts_10m,press:c.pressure_msl};
         windT = Date.now(); windPos = pos;
       }
       windBusy = false;
@@ -502,13 +503,28 @@
     if(!gpsLost && Date.now()-lastFixT>10000) gpsLost = true;
     updateAcc();
   }, 2000);
+  function pressTxt(){ return (windInfo && windInfo.press!=null) ? (windInfo.press*0.02953).toFixed(2)+' INHG' : '--'; }
+  var destTempF = null, destSeq = 0;
+  function destTxt(){ return destTempF==null ? '--' : destTempF+'°F'; }
+  function loadDestTemp(){
+    if(!routeMeta || !dest) return;
+    var a = (pos && cum.length) ? snap(pos.lat,pos.lng).along : 0, total = cum.length ? cum[cum.length-1] : routeMeta.dist;
+    var eta = Date.now() + Math.max(0,(total-a)/1609.34)/avgSpeed*3600000, my = ++destSeq;
+    var u = 'https://api.open-meteo.com/v1/forecast?latitude='+dest.lat.toFixed(3)+'&longitude='+dest.lng.toFixed(3)+'&hourly=temperature_2m&temperature_unit=fahrenheit&timeformat=unixtime&timezone=GMT&forecast_days=7';
+    fetch(u).then(function(r){ return r.json() }).then(function(d){
+      if(my!==destSeq || !d.hourly || !d.hourly.time) return;
+      var H = d.hourly, best = 0, bd = 1e18;
+      for(var k=0;k<H.time.length;k++){ var dd = Math.abs(H.time[k]*1000-eta); if(dd<bd){ bd=dd; best=k; } }
+      destTempF = Math.round(H.temperature_2m[best]); lastBar = null;
+    }).catch(function(){});
+  }
   function elevTxt(){ return (altFt==null ? '--' : altFt.toLocaleString('en-US'))+' FT'; }
   function fitBar(){ info.style.fontSize=''; }
   window.addEventListener('resize', fitBar);
   function showIdleBar(){
     info.className = 'route';
     info.style.display = 'flex';
-    info.innerHTML = '<span class="row"><span>--</span><span>--:--</span><span class="eta">--:--</span><span>'+elevTxt()+'</span><span>'+windTxt()+'</span><span id="accTxt"></span></span>';
+    info.innerHTML = '<span class="row"><span>--</span><span>--:--</span><span class="eta">--:--</span><span>'+elevTxt()+'</span><span id="accTxt"></span><span>'+windTxt()+'</span><span>'+pressTxt()+'</span><span>'+destTxt()+'</span></span>';
     fitBar(); updateAcc();
   }
   showIdleBar();
@@ -678,7 +694,7 @@
   function setCompassText(){
     var ct = document.getElementById('cmpTxt'); if(!ct) return;
     var d = lastHeading==null ? '--' : CARD[Math.round(lastHeading/45)%8];
-    ct.innerHTML = headingUp ? d : 'N'+d;
+    ct.innerHTML = headingUp ? d : '<span style="color:#ff5a5f">N</span>'+d;
   }
   function geometry(){
     if(!headingUp) return;
@@ -1294,7 +1310,7 @@
   }
   info.addEventListener('click',function(){ if(routeMeta && info.className==='route') openWx(); });
   document.getElementById('wxClose').onclick = function(){ wxPop.classList.remove('open') };
-  setInterval(function(){ if(routeMeta) loadRouteWx(); }, 600000);
+  setInterval(function(){ if(routeMeta){ loadRouteWx(); loadDestTemp(); } }, 600000);
 
   // --- information window (IN button) ---
   var curMph = null;
@@ -1310,6 +1326,8 @@
       ['Heading', heading],
       ['Elevation', altFt==null ? '--' : altFt.toLocaleString('en-US')+' ft'],
       ['Wind', wind],
+      ['Pressure', pressTxt()],
+      ['Destination temp', destTxt()],
       ['Route weather', wxs],
       ['Average speed', avgSpeed+' mph'],
       ['Routing', hereKey ? 'HERE (truck)' : 'OSRM (car, test)']
@@ -1484,7 +1502,7 @@
     routePts = route.geometry.coordinates.map(function(c){return L.latLng(c[1],c[0])});
     routeLine = L.polyline(routePts,{color:'#2f8cff',weight:7,opacity:.9}).addTo(map);
     routeMeta = {dist:route.distance,dur:route.duration};
-    prepRoute(); prepMans(route); loadStations(); loadRouteWx();
+    prepRoute(); prepMans(route); loadStations(); loadRouteWx(); loadDestTemp();
     if(fit && !headingUp){ follow=false; recenter.classList.add('show'); programmatic=true; skipSave=true; map.fitBounds(routeLine.getBounds(),{padding:[60,90]}); setTimeout(function(){programmatic=false},800); setTimeout(function(){skipSave=false},1500) }
     updateRouteInfo(null,true);
     updateTurn();
@@ -1510,7 +1528,7 @@
     info.className = 'route';
     info.style.display = 'flex';
     clearTimeout(infoTimer);
-    var html = '<span class="row"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span><span>'+windTxt()+'</span>'+wxSpan()+'<span id="accTxt"></span></span>';
+    var html = '<span class="row"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span><span id="accTxt"></span><span>'+windTxt()+'</span>'+wxSpan()+'<span>'+pressTxt()+'</span><span>'+destTxt()+'</span></span>';
     if(html!==lastBar){ info.innerHTML = html; lastBar = html; }
     fitBar(); updateAcc();
   }
@@ -1644,7 +1662,7 @@
     if(destMarker) map.removeLayer(destMarker);
     routeLine=null;destMarker=null;dest=null;routeMeta=null;routePts=[];
     stations=[]; rests=[]; setWs('W--',null); setRa('R--');
-    mans=[]; updateTurn(); wxItems=[]; wxState='none';
+    mans=[]; updateTurn(); wxItems=[]; wxState='none'; destTempF=null;
     setInfo('Route cleared');
   };
 
