@@ -72,7 +72,7 @@
   #rowB{bottom:calc(env(safe-area-inset-bottom,0px) + 8px)}
   .fab{position:relative;flex:none;width:64px;height:60px;border-radius:14px;border:2px solid var(--line);background:var(--panel);color:var(--text);font-size:19px;font-weight:700;line-height:1.1;padding:0 4px;display:flex;flex-direction:column;align-items:center;justify-content:center}
   .fab small{display:block;font-size:11px;font-weight:600;color:var(--mute);margin-top:1px}
-  .fab i{position:absolute;left:5px;top:2px;font-size:10px;font-style:normal;font-weight:600;color:var(--mute)}
+  .fab i{display:none;position:absolute;left:5px;top:2px;font-size:10px;font-style:normal;font-weight:600;color:var(--mute)}
   #colR .fab,#colL .fab{flex:1 1 0;height:auto;min-height:0}
   .fab.bad{background:#e5484d;border-color:#e5484d;color:#fff}
   .fab{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -91,8 +91,9 @@
   .fab.on{background:var(--accent);border-color:var(--accent);color:#1a1200}
   .fab.on small{color:#1a1200}
   #speedBtn,#curSpd,#limBtn{font-size:22px}
-  #recenter{background:var(--panel);border-color:var(--line);color:#fff;opacity:1}
-  #recenter.show{background:#e5484d;border-color:#e5484d;color:#fff;opacity:1}
+  #zinBtn .pl{font-size:30px;line-height:1;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:50%;border:2px solid transparent}
+  #zinBtn.show{background:#e5484d;border-color:#e5484d;color:#fff}
+  #zinBtn.show .pl{border-color:#fff}
   #speedBtn{background:#e5484d;border-color:#e5484d;color:#fff}
   #wxBtn.on{background:#e5484d;border-color:#e5484d;color:#fff}
   #gpsBtn,#gpsBtn.bad{background:var(--panel);border-color:var(--line);color:var(--text)}
@@ -114,7 +115,8 @@
   #info.route{flex-direction:row;align-items:center;justify-content:center;padding:0 3px;font-size:19px;font-weight:700}
   #info.route .row{width:100%;min-width:0;display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;column-gap:.28em;row-gap:.05em;line-height:1.15;letter-spacing:-.01em}
   #info.route .row span{white-space:nowrap}
-  #info.route .row span.eta{color:#ff5a5f}
+  #info.route .row span.eta{color:#4da3ff}
+  #wsBtn.bad{animation:blk 1s infinite}
   #info.route b{font-size:19px;font-weight:700;line-height:1.05;white-space:nowrap}
   #info.route small{font-size:12px;font-weight:600;color:var(--mute)}
   #turn{position:absolute;z-index:1000;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);height:calc(var(--bh,60px)*2 + 8px);background:var(--panel);border:2px solid var(--line);border-radius:14px;display:flex;align-items:center;gap:14px;padding:0 14px;overflow:hidden}
@@ -250,10 +252,9 @@
     4:{id:'raBtn',key:'e5',html:'<span id="raTxt">R--</span>',label:'Next rest area'},
     5:{id:'trkBtn',key:'e6',html:'POI',label:'Truck stops'}
   };
-  specsR[n-1]={id:'recenter',html:'LOC',label:'Recenter'};
   var specsL={0:{id:'gpsBtn',html:'INF',label:'Information'}};
-  specsL[1]={id:'zinBtn',key:'e9',html:'<span style="font-size:28px;line-height:1">+</span>',label:'Zoom in'};
-  specsL[2]={id:'zoutBtn',key:'e10',html:'<span style="font-size:28px;line-height:1">−</span><small id="scaleTxt">1 mi</small>',label:'Zoom out'};
+  specsL[1]={id:'zinBtn',key:'e9',html:'<span class="pl">+</span>',label:'Zoom in / back to my location'};
+  specsL[2]={id:'zoutBtn',key:'e10',html:'<span id="scaleTxt">1</span>',label:'Zoom out (shows the scale)'};
   specsL[3]={id:'cmpBtn',key:'e11',html:'<span id="cmpTxt"><span style="color:#ff5a5f">N</span>--</span>',label:'Heading / map rotation'};
   specsL[n-2]={id:'curSpd',key:'e13',html:'<span id="curSpdTxt">--</span>',label:'Current speed'};
   specsL[4]={id:'limBtn',key:'e12',html:'<span id="limTxt">..</span>',label:'Speed limit'};
@@ -282,9 +283,9 @@
   // default order = the arrangement from the user's screenshot (used when nothing is saved on this phone/browser)
   var pref={
     L:['layerBtn','gpsBtn','menu','speedBtn','e12','e14','e7','e13'],
-    R:['e6','e4','e5','wxBtn','e11','recenter','e9','e10']
+    R:['e6','e4','e5','wxBtn','e11','e8','e9','e10']
   };
-  if(n===7){ pref.R=pref.R.filter(function(k){return k!=='e7'}); pref.L=pref.L.filter(function(k){return k!=='e14'}); }
+  if(n===7){ pref.R=pref.R.filter(function(k){return k!=='e8'}); pref.L=pref.L.filter(function(k){return k!=='e14'}); }
   if(pref.R.length===n && pref.L.length===n && pref.R.concat(pref.L).every(function(k){return btns[k]})) plan=pref;
   try{
     var sv=JSON.parse(localStorage.getItem('layout3')||'null');
@@ -461,7 +462,7 @@
 
   // --- position ---
   var me = null, acc = null, pos = null, follow = true, programmatic = false;
-  var info = document.getElementById('info'), recenter = document.getElementById('recenter'), gpsBtn = document.getElementById('gpsBtn'), gpsMsg = 'Waiting for GPS…', infoTimer = null, msgUntil = 0, altFt = null, lastBar = null, accFt = null, gpsLost = true, lastFixT = 0;
+  var info = document.getElementById('info'), recenter = document.getElementById('zinBtn'), gpsBtn = document.getElementById('gpsBtn'), gpsMsg = 'Waiting for GPS…', infoTimer = null, msgUntil = 0, altFt = null, lastBar = null, accFt = null, gpsLost = true, lastFixT = 0;
   function setInfo(a,b){
     info.className=''; info.style.fontSize=''; lastBar=null;
     info.innerHTML = a + (b?'<small>'+b+'</small>':'');
@@ -478,10 +479,13 @@
   var windInfo = null, windBusy = false, windT = 0, windPos = null;
   function windTxt(){
     if(!windInfo) return '--';
+    var AR = ['↑','↗','→','↘','↓','↙','←','↖'];
     var t = CARD[Math.round(windInfo.dir/45)%8]+Math.round(windInfo.spd)+'G'+(windInfo.gust!=null ? Math.round(windInfo.gust) : '--');
+    t += AR[Math.round(((windInfo.dir+180)%360)/45)%8];
     if(lastHeading!=null){
-      var rel = ((windInfo.dir+180-lastHeading)%360+360)%360;
-      t += ['↑','↗','→','↘','↓','↙','←','↖'][Math.round(rel/45)%8];
+      var rel = ((windInfo.dir+180-lastHeading)%360+360)%360, k = Math.round(rel/45)%8;
+      var blue = (k===0 || k===1 || k===7);
+      t += '<span style="color:'+(blue ? '#4da3ff' : '#ff5a5f')+'">'+AR[k]+'</span>';
     }
     return t;
   }
@@ -607,7 +611,7 @@
     LV.forEach(function(l,i){ var d=Math.abs(Math.log(D/l[1])); if(d<bd){bd=d;best=i} });
     return best;
   }
-  function updateScale(){ var t=document.getElementById('scaleTxt'); if(t) t.textContent = LV[levelIdx()][0]; }
+  function updateScale(){ var t=document.getElementById('scaleTxt'); if(t) t.textContent = LV[levelIdx()][0].split(' ')[0]; }
   function stepZoom(dir){
     var i = Math.max(0,Math.min(LV.length-1,levelIdx()+dir));
     var c = map.getCenter();
@@ -617,7 +621,10 @@
     setTimeout(function(){programmatic=false},800);
   }
   var zin = document.getElementById('zinBtn'), zout = document.getElementById('zoutBtn');
-  if(zin) zin.onclick = function(){ stepZoom(-1) };
+  if(zin) zin.onclick = function(){
+    if(zin.classList.contains('show')){ follow = true; zin.classList.remove('show'); if(pos) goTo(pos); }
+    else stepZoom(-1);
+  };
   if(zout) zout.onclick = function(){ stepZoom(1) };
   map.on('zoomend moveend', updateScale);
   updateScale();
@@ -701,6 +708,7 @@
     curLimit = lim;
     var lt = document.getElementById('limTxt'), cs = document.getElementById('curSpdTxt');
     if(lt) lt.textContent = lim!=null ? lim : (slWays ? '--' : (slFailed ? '??' : '..'));
+    if(lt) lt.style.color = (lim==null && (slWays || slFailed)) ? '#ff5a5f' : '';
     if(cs) cs.style.color = (mph!=null && lim!=null && mph>lim) ? '#ff5a5f' : '';
   }
 
@@ -1409,22 +1417,28 @@
       for(var i=list.length-1;i>0;i--){ if(list[i].along-list[i-1].along<500) list.splice(i,1); }
     });
   }
-  function setWs(text,d){
+  function setWs(text,d,warn){
     if(!wsBtn) return;
-    document.getElementById('wsTxt').textContent = text;
-    wsBtn.classList.toggle('bad', d!=null && d<=3);
-    wsBtn.classList.toggle('on', d!=null && d>3 && d<=10);
+    var tx = document.getElementById('wsTxt');
+    tx.textContent = text; tx.style.color = warn ? '#ff5a5f' : '';
+    wsBtn.classList.remove('on');
+    wsBtn.classList.toggle('bad', d!=null && d<=10);
   }
-  function setRa(text){ if(raBtn) document.getElementById('raTxt').textContent = text; }
+  function setRa(text,d,warn){
+    if(!raBtn) return;
+    var tx = document.getElementById('raTxt');
+    tx.textContent = text; tx.style.color = warn ? '#ff5a5f' : '';
+    raBtn.classList.toggle('bad', d!=null && d<=10);
+  }
   function updateRa(){
     if(!routeMeta){ setRa('R--'); raInfo='Build a route first'; return }
     if(wsState==='loading'){ setRa('R..'); raInfo='Loading rest areas…'; return }
-    if(wsState==='error'){ setRa('R??'); raInfo='Could not load rest areas'; return }
+    if(wsState==='error'){ setRa('R??',null,true); raInfo='Could not load rest areas'; return }
     var a = pos ? snap(pos.lat,pos.lng).along : 0, next=null;
     for(var i=0;i<rests.length;i++){ if(rests[i].along > a-30){ next=rests[i]; break } }
-    if(!next){ setRa('R--'); raInfo='No rest area found ahead on this route'; return }
+    if(!next){ setRa('R--',null,true); raInfo='No rest area found ahead on this route'; return }
     var d=(next.along-a)/1609.34;
-    setRa(d>=99.5 ? 'R--' : 'R'+(d<10 ? d.toFixed(1) : Math.round(d)));
+    setRa(d>=99.5 ? 'R+' : 'R'+(d<10 ? d.toFixed(1) : Math.round(d)), d);
     raInfo='Next rest area: '+d.toFixed(1)+' mi';
   }
   var wsInfo = 'Build a route first';
@@ -1432,12 +1446,12 @@
     updateRa();
     if(!routeMeta){ setWs('W--',null); wsInfo='Build a route first'; return }
     if(wsState==='loading'){ setWs('W..',null); wsInfo='Loading weigh stations…'; return }
-    if(wsState==='error'){ setWs('W??',null); wsInfo='Could not load weigh stations'; return }
+    if(wsState==='error'){ setWs('W??',null,true); wsInfo='Could not load weigh stations'; return }
     var a = pos ? snap(pos.lat,pos.lng).along : 0, next=null;
     for(var i=0;i<stations.length;i++){ if(stations[i].along > a-30){ next=stations[i]; break } }
-    if(!next){ setWs('W--',null); wsInfo='No weigh station found ahead on this route'; return }
+    if(!next){ setWs('W--',null,true); wsInfo='No weigh station found ahead on this route'; return }
     var d=(next.along-a)/1609.34;
-    setWs(d>=99.5 ? 'W--' : 'W'+(d<10 ? d.toFixed(1) : Math.round(d)), d);
+    setWs(d>=99.5 ? 'W+' : 'W'+(d<10 ? d.toFixed(1) : Math.round(d)), d);
     wsInfo='Next weigh station: '+d.toFixed(1)+' mi';
     if(d<=3 && announced!==next.id){ announced=next.id; alertWs(); }
   }
