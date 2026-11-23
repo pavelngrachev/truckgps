@@ -76,9 +76,9 @@
   #colR .fab,#colL .fab{flex:1 1 0;height:auto;min-height:0}
   .fab.bad{background:#e5484d;border-color:#e5484d;color:#fff}
   .fab{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-  @keyframes jig{0%{rotate:-1.8deg}50%{rotate:1.8deg}100%{rotate:-1.8deg}}
-  body.edit .fab{animation:jig .22s infinite}
-  body.edit .fab:nth-child(even){animation-delay:-.11s}
+  @keyframes jig{0%{rotate:-.6deg}50%{rotate:.6deg}100%{rotate:-.6deg}}
+  body.edit .fab{animation:jig .35s infinite}
+  body.edit .fab:nth-child(even){animation-delay:-.17s}
   .fab.drag{animation:none !important;z-index:2000;opacity:.9;box-shadow:0 6px 18px rgba(0,0,0,.5)}
   #colR,#colL{width:64px;visibility:hidden}
   #btnLayer{position:fixed;inset:0;z-index:1000;pointer-events:none}
@@ -343,9 +343,9 @@
     if(EDIT){e.stopPropagation();e.preventDefault()}
   },true);
 
-  function startDrag(b,x,y,pid){
+  function startDrag(b,x,y,pid,initial){
     var s=slots[order.indexOf(b)];
-    drag={el:b,offX:x-s.x,offY:y-s.y};
+    drag={el:b,offX:x-s.x,offY:y-s.y,x0:x,y0:y,moved:false,initial:!!initial};
     b.classList.add('drag');
     try{b.setPointerCapture(pid)}catch(e){}
     b.style.transform='translate('+(x-drag.offX)+'px,'+(y-drag.offY)+'px) scale(1.1)';
@@ -361,23 +361,25 @@
   function endDrag(){
     if(press){clearTimeout(press);press=null}
     if(!drag) return;
-    var b=drag.el; drag=null;
+    var b=drag.el, wasTap=!drag.moved && !drag.initial; drag=null;
     b.classList.remove('drag');
     place(b,order.indexOf(b));
     save();
+    if(wasTap) setEdit(false);
   }
 
   order.forEach(function(b){
     b.addEventListener('pointerdown',function(e){
-      if(EDIT){ startDrag(b,e.clientX,e.clientY,e.pointerId); return }
+      if(EDIT){ startDrag(b,e.clientX,e.clientY,e.pointerId,false); return }
       ps={x:e.clientX,y:e.clientY,id:e.pointerId};
       press=setTimeout(function(){
-        press=null; setEdit(true); startDrag(b,ps.x,ps.y,ps.id);
+        press=null; setEdit(true); startDrag(b,ps.x,ps.y,ps.id,true);
       },450);
     });
     b.addEventListener('pointermove',function(e){
       if(press&&Math.hypot(e.clientX-ps.x,e.clientY-ps.y)>10){clearTimeout(press);press=null}
       if(!drag||drag.el!==b) return;
+      if(!drag.moved && Math.hypot(e.clientX-drag.x0,e.clientY-drag.y0)>8) drag.moved=true;
       b.style.transform='translate('+(e.clientX-drag.offX)+'px,'+(e.clientY-drag.offY)+'px) scale(1.1)';
       var cur=order.indexOf(b), near=nearest(e.clientX,e.clientY);
       if(near!==cur){
@@ -390,6 +392,9 @@
     b.addEventListener('pointerup',endDrag);
     b.addEventListener('pointercancel',endDrag);
     b.addEventListener('lostpointercapture',endDrag);
+  });
+  document.addEventListener('pointerdown',function(e){
+    if(EDIT && !(e.target.closest && e.target.closest('.fab'))) setEdit(false);
   });
 })();
 </script>
@@ -489,18 +494,24 @@
       var c = d.current;
       if(c && c.wind_speed_10m!=null && c.wind_direction_10m!=null){
         windInfo = {dir:c.wind_direction_10m,spd:c.wind_speed_10m,gust:c.wind_gusts_10m,press:c.pressure_msl};
-        windT = Date.now(); windPos = pos;
+        windT = Date.now(); windPos = pos; refreshBar();
       }
       windBusy = false;
     }).catch(function(){ windBusy = false; windT = Date.now()-240000; });
   }
   function accTxt(){ return gpsLost ? '±NS FT' : (accFt==null ? '--' : '±'+accFt+' FT'); }
+  setInterval(function(){
+    if(!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(function(p){
+      accFt = Math.round(p.coords.accuracy*3.28084); gpsLost = false; lastFixT = Date.now(); updateAcc();
+    }, function(){}, {enableHighAccuracy:true,maximumAge:5000,timeout:8000});
+  }, 5000);
   function updateAcc(){
     var e = document.getElementById('accTxt');
     if(e){ e.textContent = accTxt(); e.style.color = gpsLost ? '#ff5a5f' : ''; }
   }
   setInterval(function(){
-    if(!gpsLost && Date.now()-lastFixT>10000) gpsLost = true;
+    if(!gpsLost && Date.now()-lastFixT>25000) gpsLost = true;
     updateAcc();
   }, 2000);
   function pressTxt(){ return (windInfo && windInfo.press!=null) ? (windInfo.press*0.02953).toFixed(2)+' INHG' : '--'; }
@@ -515,8 +526,19 @@
       if(my!==destSeq || !d.hourly || !d.hourly.time) return;
       var H = d.hourly, best = 0, bd = 1e18;
       for(var k=0;k<H.time.length;k++){ var dd = Math.abs(H.time[k]*1000-eta); if(dd<bd){ bd=dd; best=k; } }
-      destTempF = Math.round(H.temperature_2m[best]); lastBar = null;
+      destTempF = Math.round(H.temperature_2m[best]); refreshBar();
     }).catch(function(){});
+  }
+  function refreshBar(){
+    lastBar = null;
+    if(routeMeta) updateRouteInfo(null,true); else if(info.className==='route') showIdleBar();
+  }
+  setInterval(function(){
+    if(routeMeta) updateRouteInfo(null); else if(info.className==='route') showIdleBar();
+  }, 2000);
+  function pressColor(){
+    if(!windInfo || windInfo.press==null) return '';
+    return windInfo.press<1009 ? '#4da3ff' : (windInfo.press>1023 ? '#ff5a5f' : '');
   }
   function elevTxt(){ return (altFt==null ? '--' : altFt.toLocaleString('en-US'))+' FT'; }
   function fitBar(){ info.style.fontSize=''; }
@@ -524,7 +546,7 @@
   function showIdleBar(){
     info.className = 'route';
     info.style.display = 'flex';
-    info.innerHTML = '<span class="row"><span>--</span><span>--:--</span><span class="eta">--:--</span><span>'+elevTxt()+'</span><span id="accTxt"></span><span>'+windTxt()+'</span><span>'+pressTxt()+'</span><span>'+destTxt()+'</span></span>';
+    info.innerHTML = '<span class="row"><span>--</span><span>--:--</span><span class="eta">--:--</span><span>'+elevTxt()+'</span><span id="accTxt"></span><span>'+windTxt()+'</span><span style="color:'+pressColor()+'">'+pressTxt()+'</span><span>'+destTxt()+'</span></span>';
     fitBar(); updateAcc();
   }
   showIdleBar();
@@ -1528,7 +1550,7 @@
     info.className = 'route';
     info.style.display = 'flex';
     clearTimeout(infoTimer);
-    var html = '<span class="row"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span><span id="accTxt"></span><span>'+windTxt()+'</span>'+wxSpan()+'<span>'+pressTxt()+'</span><span>'+destTxt()+'</span></span>';
+    var html = '<span class="row"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span><span id="accTxt"></span><span>'+windTxt()+'</span>'+wxSpan()+'<span style="color:'+pressColor()+'">'+pressTxt()+'</span><span>'+destTxt()+'</span></span>';
     if(html!==lastBar){ info.innerHTML = html; lastBar = html; }
     fitBar(); updateAcc();
   }
