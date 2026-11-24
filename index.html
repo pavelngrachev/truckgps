@@ -130,6 +130,7 @@
   #turn .ar{font-size:54px;line-height:1;color:var(--accent);font-weight:400}
   #turn .d{font-size:30px;font-weight:500;margin-top:2px;white-space:nowrap}
   #turn .t{flex:1;font-size:24px;font-weight:500;line-height:1.2;min-width:0;overflow:hidden}
+  #wxPop{left:calc(var(--bh,60px) + 16px) !important;right:calc(var(--bh,60px) + 16px) !important;bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px)*2 + 24px) !important}
   #trkPop,#wxPop,#setPop,#infoPop,#tripPop{left:80px;right:80px;top:calc(env(safe-area-inset-top,0px) + var(--bh,60px)*2 + 24px);bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px)*2 + 32px);transform:none;min-width:0;padding:8px;flex-direction:column;gap:6px;overflow:hidden}
   #trkPop.open,#wxPop.open,#setPop.open,#infoPop.open,#tripPop.open{display:flex}
   .seg{display:flex;gap:6px;flex-wrap:wrap}
@@ -140,7 +141,7 @@
   #trkList .it b,#wxList .it b{display:block;font-size:14px}
   #trkList .it small,#wxList .it small{display:block;font-size:12px;color:var(--mute);line-height:1.3}
   #trkList .mapb{flex:none;border:0;border-radius:8px;background:var(--line);color:var(--text);padding:9px 11px;font-size:13px;font-weight:600}
-  #trkClose,#wxClose,#setClose,#infoClose,#tripClose,#tripReset{width:100%;padding:11px;font-size:16px;font-weight:600;border:0;border-radius:8px;background:var(--line);color:var(--text)}
+  #trkClose,#setClose,#infoClose,#tripClose,#tripReset{width:100%;padding:11px;font-size:16px;font-weight:600;border:0;border-radius:8px;background:var(--line);color:var(--text)}
   #map.rot{transition:transform .6s linear}
   #attr{position:fixed;left:80px;right:80px;bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px)*2 + 20px);text-align:center;font-size:10px;color:#222;text-shadow:0 0 3px #fff,0 0 3px #fff;z-index:950;pointer-events:none}
   .arw{width:30px;height:30px}
@@ -237,7 +238,6 @@
 <div class="pop" id="wxPop">
   <div class="note" id="wxHead">Weather on your route</div>
   <div id="wxList"></div>
-  <button id="wxClose">Close</button>
 </div>
 
 <div class="pop" id="speedPop">
@@ -508,9 +508,11 @@
   function fmtWind(w,heading){ return fmtWind0(w,heading); }
   function fmtWind0(w,heading){
     var AR = ['↑','↗','→','↘','↓','↙','←','↖'];
-    var gs = w.gust!=null ? String(Math.round(w.gust)) : '--', strong = ((w.gust!=null ? w.gust : w.spd) >= 30);
+    function p2(n){ n=Math.round(n); return (n<10?'0':'')+n; }
+    var gs = w.gust!=null ? p2(w.gust) : '--', strong = ((w.gust!=null ? w.gust : w.spd) >= 30);
     if(strong) gs = '<span class="flash" style="color:#ff5a5f">'+gs+'</span>';
-    var t = CARD[Math.round(w.dir/45)%8]+Math.round(w.spd)+'G'+gs;
+    var dd = Math.round(w.dir/10)*10; if(dd===0) dd = 360;
+    var t = String(dd).padStart(3,'0')+p2(w.spd)+'G'+gs;
     t += AR[Math.round(((w.dir+180)%360)/45)%8];
     if(heading==null) return t+'<span style="color:#ff5a5f">-</span>';
     var rel = ((w.dir+180-heading)%360+360)%360, k = Math.round(rel/45)%8;
@@ -579,7 +581,7 @@
   }, 2000);
   function pressTxt(){ return (windInfo && windInfo.press!=null) ? (windInfo.press*0.02953).toFixed(2)+' INHG' : RDASH; }
   var destTempF = null, destSeq = 0;
-  function tempSpan(v){ return v<=32 ? '<span class="flash" style="color:#ff5a5f">'+v+'</span>°F' : '<span style="color:#4da3ff">'+v+'°F</span>'; }
+  function tempSpan(v){ return v<=32 ? '<span class="flash" style="color:#ff5a5f">'+v+'</span>°F' : v+'°F'; }
   function destTxt(){ return destTempF==null ? RDASH : tempSpan(destTempF); }
   function curTempTxt(){ return (windInfo && windInfo.temp!=null) ? tempSpan(Math.round(windInfo.temp)) : RDASH; }
   function loadDestTemp(){
@@ -1569,8 +1571,7 @@
     });
     wxPop.classList.add('open');
   }
-  info.addEventListener('click',function(){ if(routeMeta && info.className==='route') openWx(); });
-  document.getElementById('wxClose').onclick = function(){ wxPop.classList.remove('open') };
+  info.addEventListener('click',function(){ if(wxPop.classList.contains('open')){ wxPop.classList.remove('open'); return; } if(routeMeta && info.className==='route') openWx(); });
   setInterval(function(){ if(routeMeta){ loadRouteWx(); loadDestTemp(); } }, 600000);
 
   // --- information window (IN button) ---
