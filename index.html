@@ -504,19 +504,20 @@
     var AR = ['↑','↗','→','↘','↓','↙','←','↖'];
     var t = CARD[Math.round(w.dir/45)%8]+Math.round(w.spd)+'G'+(w.gust!=null ? Math.round(w.gust) : '--');
     t += AR[Math.round(((w.dir+180)%360)/45)%8];
-    if(heading==null) return t+'<span class="flash" style="color:#4da3ff">↑</span>';
+    if(heading==null) return t+'<span style="color:#ff5a5f">--</span>';
     var rel = ((w.dir+180-heading)%360+360)%360, k = Math.round(rel/45)%8;
     var blue = (k===0 || k===1 || k===7);
     return t+'<span style="color:'+(blue ? '#4da3ff' : '#ff5a5f')+'">'+AR[k]+'</span>';
   }
   var RDASH = '<span style="color:#ff5a5f">--</span>';
-  function windTxt(){ return windInfo ? fmtWind(windInfo,lastHeading) : RDASH; }
+  function curHeading(){ return moveNow ? lastHeading : null; }
+  function windTxt(){ return windInfo ? fmtWind(windInfo,curHeading()) : RDASH; }
   // strongest wind now or later along the route (by gust)
   function routeWindTxt(){
     if(!routeMeta) return RDASH;
     var a = pos ? snap(pos.lat,pos.lng).along : 0, best = null;
     function val(w){ return w.gust!=null ? w.gust : w.spd; }
-    if(windInfo) best = {w:windInfo,h:lastHeading,mi:0};
+    if(windInfo) best = {w:windInfo,h:curHeading(),mi:0};
     wxWinds.forEach(function(w){
       if(w.al < a-1500) return;
       if(!best || val(w)>val(best.w)) best = {w:w,h:w.hd,mi:Math.max(0,(w.al-a)/1609.34)};
@@ -755,7 +756,7 @@
 
   // --- compass: tap to switch north-up / heading-up ---
   var CARD = ['N','NE','E','SE','S','SW','W','NW'];
-  var lastFix = null, lastHeading = null, headingUp = false, rotAngle = 0;
+  var moveNow = false, lastFix = null, lastHeading = null, headingUp = false, rotAngle = 0;
   var mapEl = document.getElementById('map');
   function bearingBetween(a,b){
     var r = Math.PI/180, y = Math.sin((b.lng-a.lng)*r)*Math.cos(b.lat*r);
@@ -764,7 +765,7 @@
   }
   function setCompassText(){
     var ct = document.getElementById('cmpTxt'); if(!ct) return;
-    var d = lastHeading==null ? RDASH : CARD[Math.round(lastHeading/45)%8];
+    var d = curHeading()==null ? RDASH : CARD[Math.round(lastHeading/45)%8];
     ct.innerHTML = headingUp ? d : '<span style="color:#ff5a5f">N</span>'+d;
   }
   function geometry(){
@@ -828,6 +829,7 @@
     else if(lastFix && lastFix.distanceTo(pos) > 15){ h = bearingBetween(lastFix,pos); ok = true; lastFix = pos; }
     else if(!lastFix){ lastFix = pos; }
     if(ok) lastHeading = (h+360)%360;
+    moveNow = (typeof p.coords.speed==='number' && p.coords.speed*2.23694>=2);
     setCompassText();
     var arw = document.getElementById('arw');
     if(arw && lastHeading!=null) arw.style.transform = 'rotate('+lastHeading+'deg)';
