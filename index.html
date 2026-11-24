@@ -92,6 +92,7 @@
   .fab.on small{color:#1a1200}
   #zinBtn .pl{font-size:19px;line-height:1}
   #zinBtn.show{background:#e5484d;border-color:#e5484d;color:#fff}
+  .fab.lim{background:#fff;border-color:#fff;color:#111}
   #speedBtn{background:#e5484d;border-color:#e5484d;color:#fff}
   #wxBtn.on{background:#e5484d;border-color:#e5484d;color:#fff}
   #gpsBtn,#gpsBtn.bad{background:var(--panel);border-color:var(--line);color:var(--text)}
@@ -246,16 +247,16 @@
     0:{id:'layerBtn',html:'MAP',label:'Map type'},
     1:{id:'wxBtn',html:'WX',label:'Weather radar'},
     2:{id:'speedBtn',html:'<span id="speedTxt">55</span>',label:'Average speed'},
-    3:{id:'wsBtn',key:'e4',html:'<span id="wsTxt">W--</span>',label:'Next weigh station'},
-    4:{id:'raBtn',key:'e5',html:'<span id="raTxt">R--</span>',label:'Next rest area'},
+    3:{id:'wsBtn',key:'e4',html:'<span id="wsTxt">W<span style="color:#ff5a5f">--</span></span>',label:'Next weigh station'},
+    4:{id:'raBtn',key:'e5',html:'<span id="raTxt">R<span style="color:#ff5a5f">--</span></span>',label:'Next rest area'},
     5:{id:'trkBtn',key:'e6',html:'POI',label:'Truck stops'}
   };
   var specsL={0:{id:'gpsBtn',html:'INF',label:'Information'}};
   specsL[1]={id:'zinBtn',key:'e9',html:'<span class="pl">+</span>',label:'Zoom in / back to my location'};
   specsL[2]={id:'zoutBtn',key:'e10',html:'<span id="scaleTxt">1</span>',label:'Zoom out (shows the scale)'};
   specsL[3]={id:'cmpBtn',key:'e11',html:'<span id="cmpTxt"><span style="color:#ff5a5f">N</span>--</span>',label:'Heading / map rotation'};
-  specsL[n-2]={id:'curSpd',key:'e13',html:'<span id="curSpdTxt">--</span>',label:'Current speed'};
-  specsL[4]={id:'limBtn',key:'e12',html:'<span id="limTxt">..</span>',label:'Speed limit'};
+  specsL[n-2]={id:'curSpd',key:'e13',html:'<span id="curSpdTxt" style="color:#ff5a5f">--</span>',label:'Current speed'};
+  specsL[4]={empty:true,key:'e12',text:'12'};
   specsL[n-1]={id:'setBtn',key:'menu',html:'SET',label:'Settings'};
   specsR[n-1]={empty:true,key:'e14',text:'14'};
 
@@ -277,6 +278,10 @@
       num++;
     }
   });
+  var limEl = document.createElement('button');
+  limEl.id = 'limBtn'; limEl.className = 'fab lim'; limEl.setAttribute('aria-label','Speed limit');
+  limEl.innerHTML = '<span id="limTxt" style="color:#e5484d">--</span>';
+  layer.appendChild(limEl);
 
   // restore saved layout
   var plan={R:def.R.slice(),L:def.L.slice()};
@@ -316,6 +321,14 @@
     var s=slots[i];
     b.style.height=s.h+'px'; b.style.width=BW+'px';
     b.style.transform='translate('+s.x+'px,'+s.y+'px)';
+    if(b.id==='curSpd'){
+      var l=document.getElementById('limBtn');
+      if(l){
+        var lx=(i<n) ? s.x-BW-GAP : s.x+BW+GAP;
+        l.style.height=s.h+'px'; l.style.width=BW+'px';
+        l.style.transform='translate('+lx+'px,'+s.y+'px)';
+      }
+    }
   }
   function placeAll(){ geom(); order.forEach(function(b,i){place(b,i)}); }
   layer.classList.add('notrans'); placeAll(); void layer.offsetHeight; layer.classList.remove('notrans');
@@ -710,9 +723,8 @@
     }
     curLimit = lim;
     var lt = document.getElementById('limTxt'), cs = document.getElementById('curSpdTxt');
-    if(lt) lt.textContent = lim!=null ? lim : (slWays ? '--' : (slFailed ? '??' : '..'));
-    if(lt) lt.style.color = (lim==null && (slWays || slFailed)) ? '#ff5a5f' : '';
-    if(cs) cs.style.color = (mph!=null && lim!=null && mph>lim) ? '#ff5a5f' : '';
+    if(lt){ lt.textContent = lim!=null ? lim : '--'; lt.style.color = lim!=null ? '#111' : '#e5484d'; }
+    if(cs) cs.style.color = (mph==null || (lim!=null && mph>lim)) ? '#ff5a5f' : '';
   }
 
   // --- compass: tap to switch north-up / heading-up ---
@@ -1423,14 +1435,16 @@
   function setWs(text,d,warn){
     if(!wsBtn) return;
     var tx = document.getElementById('wsTxt');
-    tx.textContent = text; tx.style.color = warn ? '#ff5a5f' : '';
+    if(d==null) tx.innerHTML = 'W<span style="color:#ff5a5f">--</span>';
+    else { tx.textContent = text; tx.style.color = ''; }
     wsBtn.classList.remove('on');
     wsBtn.classList.toggle('bad', d!=null && d<=10);
   }
   function setRa(text,d,warn){
     if(!raBtn) return;
     var tx = document.getElementById('raTxt');
-    tx.textContent = text; tx.style.color = warn ? '#ff5a5f' : '';
+    if(d==null) tx.innerHTML = 'R<span style="color:#ff5a5f">--</span>';
+    else { tx.textContent = text; tx.style.color = ''; }
     raBtn.classList.toggle('bad', d!=null && d<=10);
   }
   function updateRa(){
