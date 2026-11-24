@@ -141,7 +141,7 @@
   #map.rot{transition:transform .6s linear}
   #attr{position:fixed;left:80px;right:80px;bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px)*2 + 20px);text-align:center;font-size:10px;color:#222;text-shadow:0 0 3px #fff,0 0 3px #fff;z-index:950;pointer-events:none}
   .arw{width:30px;height:30px}
-  @keyframes blk{0%,100%{opacity:1}50%{opacity:.1}}
+  @keyframes blk{0%,49.99%{opacity:1}50%,100%{opacity:0}}
   .flash{animation:blk 1s infinite}
   #setPop,#infoPop{overflow-y:auto}
   #setPop input{width:100%;padding:12px;font-size:16px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
@@ -500,13 +500,12 @@
     }
   }
   var windInfo = null, windBusy = false, windT = 0, windPos = null;
-  function fmtWind(w,heading){
-    var strong = ((w.gust!=null ? w.gust : w.spd) >= 30), r = fmtWind0(w,heading);
-    return strong ? '<span class="flash" style="color:#ff5a5f">'+r+'</span>' : r;
-  }
+  function fmtWind(w,heading){ return fmtWind0(w,heading); }
   function fmtWind0(w,heading){
     var AR = ['↑','↗','→','↘','↓','↙','←','↖'];
-    var t = CARD[Math.round(w.dir/45)%8]+Math.round(w.spd)+'G'+(w.gust!=null ? Math.round(w.gust) : '--');
+    var gs = w.gust!=null ? String(Math.round(w.gust)) : '--', strong = ((w.gust!=null ? w.gust : w.spd) >= 30);
+    if(strong) gs = '<span class="flash" style="color:#ff5a5f">'+gs+'</span>';
+    var t = CARD[Math.round(w.dir/45)%8]+Math.round(w.spd)+'G'+gs;
     t += AR[Math.round(((w.dir+180)%360)/45)%8];
     if(heading==null) return t+'<span style="color:#ff5a5f">-</span>';
     var rel = ((w.dir+180-heading)%360+360)%360, k = Math.round(rel/45)%8;
