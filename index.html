@@ -1566,16 +1566,14 @@
       ['CL','#fff',0,'Clear'],
       ['RA','#3ddc84',0,'Light rain'],
       ['RA','#ffd23f',0,'Moderate rain'],
-      ['RA','#ff5a5f',1,'Heavy rain, thunderstorm'],
+      ['RA','#ff5a5f',1,'Heavy rain'],
       ['SN','#ff5a5f',0,'Snow'],
-      ['SN','#ff5a5f',1,'Heavy snow, blizzard'],
+      ['SN','#ff5a5f',1,'Heavy snow'],
       ['IC','#c084fc',1,'Freezing rain'],
       ['BI','#c084fc',1,'Black ice'],
       ['HA','#ff5a5f',1,'Hail'],
       ['TO','#ff5a5f',1,'Tornado'],
-      ['HU','#ff5a5f',1,'Hurricane'],
-      ['WIND','<span style="color:#4da3ff">270</span>03G<span class="flash" style="color:#ff5a5f">32</span>',2,'Direction, speed, gust. Gust 30+ blinks'],
-      ['TEMP','<span class="flash" style="color:#ff5a5f">32</span>°F',2,'32°F and below blinks']
+      ['HU','#ff5a5f',1,'Hurricane']
     ];
 
 
@@ -1587,7 +1585,7 @@
       row.appendChild(k); row.appendChild(v); lg.appendChild(row);
     });
     box.appendChild(lg);
-    document.getElementById('wxHead').textContent = wxState==='loading' ? 'Loading weather…' : (wxState==='error' ? 'Could not load weather' : (list.length ? 'Weather ahead (at your average speed)' : 'No rain, snow, ice or warnings found ahead'));
+    var hd = document.getElementById('wxHead'); hd.textContent = wxState==='loading' ? 'Loading weather…' : (wxState==='error' ? 'Could not load weather' : ''); hd.style.display = hd.textContent ? '' : 'none';
     list.slice(0,40).forEach(function(it){
       var el = document.createElement('div'); el.className = 'it';
       var b = document.createElement('b'); b.textContent = it.type+' · '+it.text; b.style.color = WXC[it.color]||'';
