@@ -1454,22 +1454,22 @@
     return L.latLng(routePts[lo].lat+(routePts[hi].lat-routePts[lo].lat)*f, routePts[lo].lng+(routePts[hi].lng-routePts[lo].lng)*f);
   }
   function classifyFc(t,p,c){
-    if(c===66||c===67||c===56||c===57) return {type:'ICE',text:'Freezing rain / drizzle',color:'purple',flash:true,rank:90};
-    if(c===75||c===86||((c===71||c===73||c===77||c===85)&&p>=2)) return {type:'S',text:'Heavy snow',color:'red',flash:true,rank:85};
+    if(c===66||c===67||c===56||c===57) return {type:'IC',text:'Freezing rain / drizzle',color:'purple',flash:true,rank:90};
+    if(c===75||c===86||((c===71||c===73||c===77||c===85)&&p>=2)) return {type:'SN',text:'Heavy snow',color:'red',flash:true,rank:85};
     if(t!=null && t<=1 && (p>0 || c===48 || (c>=51&&c<=65) || (c>=80&&c<=82))) return {type:'BI',text:'Black ice risk (cold and wet)',color:'purple',flash:true,rank:80};
-    if(c>=95) return {type:'TS',text:'Thunderstorm',color:'red',flash:false,rank:70};
-    if(c===71||c===73||c===77||c===85) return {type:'SNOW',text:'Snow',color:'yellow',flash:false,rank:40};
-    if(p>=7.6) return {type:'RAIN',text:'Heavy rain',color:'red',flash:false,rank:60};
-    if(p>=2.5) return {type:'RAIN',text:'Moderate rain',color:'yellow',flash:false,rank:50};
-    if(p>=0.1) return {type:'RAIN',text:'Light rain',color:'green',flash:false,rank:30};
+    if(c>=95) return {type:'TS',text:'Thunderstorm',color:'red',flash:true,rank:70};
+    if(c===71||c===73||c===77||c===85) return {type:'SN',text:'Snow',color:'yellow',flash:false,rank:40};
+    if(p>=7.6) return {type:'RA',text:'Heavy rain',color:'red',flash:true,rank:60};
+    if(p>=2.5) return {type:'RA',text:'Moderate rain',color:'yellow',flash:false,rank:50};
+    if(p>=0.1) return {type:'RA',text:'Light rain',color:'green',flash:false,rank:30};
     return null;
   }
   function classifyAlert(ev){
-    if(/tornado/i.test(ev)) return {type:'T',color:'red',flash:true,rank:100};
-    if(/hurricane|tropical storm|storm surge/i.test(ev)) return {type:'H',color:'red',flash:true,rank:99};
-    if(/ice storm|freezing rain|freezing drizzle|freezing fog/i.test(ev)) return {type:'ICE',color:'purple',flash:true,rank:91};
-    if(/blizzard|winter storm|heavy snow|snow squall/i.test(ev)) return {type:'S',color:'red',flash:true,rank:86};
-    if(/severe thunderstorm/i.test(ev)) return {type:'TS',color:'red',flash:false,rank:71};
+    if(/tornado/i.test(ev)) return {type:'TO',color:'red',flash:true,rank:100};
+    if(/hurricane|tropical storm|storm surge/i.test(ev)) return {type:'HU',color:'red',flash:true,rank:99};
+    if(/ice storm|freezing rain|freezing drizzle|freezing fog/i.test(ev)) return {type:'IC',color:'purple',flash:true,rank:91};
+    if(/blizzard|winter storm|heavy snow|snow squall/i.test(ev)) return {type:'SN',color:'red',flash:true,rank:86};
+    if(/severe thunderstorm/i.test(ev)) return {type:'TS',color:'red',flash:true,rank:71};
     return null;
   }
   function routeHeadingAt(al){
@@ -1552,7 +1552,7 @@
       if(it.al < a-1500) return;
       if(!best || it.rank>best.rank || (it.rank===best.rank && it.al<best.al)) best = it;
     });
-    if(!best) return '<span>CLR</span>';
+    if(!best) return '<span>CL</span>';
     var d = Math.max(0,(best.al-a)/1609.34);
     return '<span class="'+(best.flash?'flash':'')+'" style="color:'+WXC[best.color]+'">'+best.type+(d<0.5 ? ' NOW' : ' '+Math.round(d))+(best.lat!=null && stateAt(best.lat,best.lng) ? ' '+stateAt(best.lat,best.lng) : '')+'</span>';
   }
@@ -1562,24 +1562,25 @@
     var list = wxItems.filter(function(it){return it.al>=a-1500}).sort(function(x,y){return x.al-y.al});
     var box = document.getElementById('wxList'); box.innerHTML = '';
     var LEG = [
-      ['CLR','#fff',0,'Осадков и предупреждений впереди нет'],
-      ['RAIN','#3ddc84',0,'Лёгкий дождь (от 0.1 мм/ч)'],
-      ['RAIN','#ffd23f',0,'Умеренный дождь (от 2.5 мм/ч)'],
-      ['RAIN','#ff5a5f',0,'Сильный дождь (от 7.6 мм/ч)'],
-      ['SNOW','#ffd23f',0,'Снег'],
-      ['S','#ff5a5f',1,'Сильный снег, метель'],
-      ['ICE','#c084fc',1,'Ледяной дождь, изморозь'],
-      ['BI','#c084fc',1,'Чёрный лёд: холодно (до 34°F) и сыро'],
-      ['TS','#ff5a5f',0,'Гроза'],
-      ['T','#ff5a5f',1,'Торнадо (предупреждение NWS)'],
-      ['H','#ff5a5f',1,'Ураган, тропический шторм'],
-      ['27003G32','#ff5a5f',1,'Ветер: синие цифры — направление (откуда), потом скорость и порыв. Порыв от 30 мигает красным'],
-      ['32°F','#ff5a5f',1,'Температура 32°F и ниже: число мигает красным']
+      ['CL','#fff',0,'Clear: осадков и предупреждений впереди нет'],
+      ['RA','#3ddc84',0,'Дождь лёгкий (от 0.1 мм/ч)'],
+      ['RA','#ffd23f',0,'Дождь умеренный (от 2.5 мм/ч)'],
+      ['RA','#ff5a5f',1,'Дождь сильный (от 7.6 мм/ч)'],
+      ['SN','#ffd23f',0,'Снег обычный'],
+      ['SN','#ff5a5f',1,'Снег сильный или метель'],
+      ['IC','#c084fc',1,'Ice: ледяной дождь, изморозь'],
+      ['BI','#c084fc',1,'Black ice: холодно (до 34°F) и сыро'],
+      ['TS','#ff5a5f',1,'Thunderstorm: гроза'],
+      ['TO','#ff5a5f',1,'Tornado: предупреждение NWS'],
+      ['HU','#ff5a5f',1,'Hurricane: ураган, тропический шторм'],
+      ['WIND','<span style="color:#4da3ff">270</span>03G<span class="flash" style="color:#ff5a5f">32</span>',2,'Ветер: синие цифры направление (откуда), потом скорость и порыв. Порыв от 30 мигает красным'],
+      ['TEMP','<span class="flash" style="color:#ff5a5f">32</span>°F',2,'Температура 32°F и ниже: число мигает красным']
     ];
+
     var lg = document.createElement('div'); lg.style.cssText = 'padding:4px 4px 8px;border-bottom:2px solid var(--line);margin-bottom:4px';
     LEG.forEach(function(r){
       var row = document.createElement('div'); row.style.cssText = 'display:flex;gap:10px;align-items:baseline;padding:3px 0';
-      var k = document.createElement('b'); k.textContent = r[0]; k.style.cssText = 'flex:none;min-width:78px;font-size:14px;color:'+r[1]; if(r[2]) k.className = 'flash';
+      var k = document.createElement('b'); if(r[2]===2){ k.innerHTML = r[1]; k.style.cssText = 'flex:none;min-width:78px;font-size:14px'; } else { k.textContent = r[0]; k.style.cssText = 'flex:none;min-width:78px;font-size:14px;color:'+r[1]; if(r[2]) k.className = 'flash'; }
       var v = document.createElement('small'); v.textContent = r[3]; v.style.cssText = 'font-size:12px;color:var(--mute);line-height:1.3';
       row.appendChild(k); row.appendChild(v); lg.appendChild(row);
     });
