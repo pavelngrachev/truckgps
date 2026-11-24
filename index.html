@@ -512,7 +512,7 @@
     var gs = w.gust!=null ? p2(w.gust) : '--', strong = ((w.gust!=null ? w.gust : w.spd) >= 30);
     if(strong) gs = '<span class="flash" style="color:#ff5a5f">'+gs+'</span>';
     var dd = Math.round(w.dir/10)*10; if(dd===0) dd = 360;
-    var t = String(dd).padStart(3,'0')+p2(w.spd)+'G'+gs;
+    var t = '<span style="color:#4da3ff">'+String(dd).padStart(3,'0')+'</span>'+p2(w.spd)+'G'+gs;
     t += AR[Math.round(((w.dir+180)%360)/45)%8];
     if(heading==null) return t+'<span style="color:#ff5a5f">-</span>';
     var rel = ((w.dir+180-heading)%360+360)%360, k = Math.round(rel/45)%8;
@@ -1561,6 +1561,29 @@
     var a = pos ? snap(pos.lat,pos.lng).along : 0;
     var list = wxItems.filter(function(it){return it.al>=a-1500}).sort(function(x,y){return x.al-y.al});
     var box = document.getElementById('wxList'); box.innerHTML = '';
+    var LEG = [
+      ['CLR','#fff',0,'Осадков и предупреждений впереди нет'],
+      ['RAIN','#3ddc84',0,'Лёгкий дождь (от 0.1 мм/ч)'],
+      ['RAIN','#ffd23f',0,'Умеренный дождь (от 2.5 мм/ч)'],
+      ['RAIN','#ff5a5f',0,'Сильный дождь (от 7.6 мм/ч)'],
+      ['SNOW','#ffd23f',0,'Снег'],
+      ['S','#ff5a5f',1,'Сильный снег, метель'],
+      ['ICE','#c084fc',1,'Ледяной дождь, изморозь'],
+      ['BI','#c084fc',1,'Чёрный лёд: холодно (до 34°F) и сыро'],
+      ['TS','#ff5a5f',0,'Гроза'],
+      ['T','#ff5a5f',1,'Торнадо (предупреждение NWS)'],
+      ['H','#ff5a5f',1,'Ураган, тропический шторм'],
+      ['27003G32','#ff5a5f',1,'Ветер: синие цифры — направление (откуда), потом скорость и порыв. Порыв от 30 мигает красным'],
+      ['32°F','#ff5a5f',1,'Температура 32°F и ниже: число мигает красным']
+    ];
+    var lg = document.createElement('div'); lg.style.cssText = 'padding:4px 4px 8px;border-bottom:2px solid var(--line);margin-bottom:4px';
+    LEG.forEach(function(r){
+      var row = document.createElement('div'); row.style.cssText = 'display:flex;gap:10px;align-items:baseline;padding:3px 0';
+      var k = document.createElement('b'); k.textContent = r[0]; k.style.cssText = 'flex:none;min-width:78px;font-size:14px;color:'+r[1]; if(r[2]) k.className = 'flash';
+      var v = document.createElement('small'); v.textContent = r[3]; v.style.cssText = 'font-size:12px;color:var(--mute);line-height:1.3';
+      row.appendChild(k); row.appendChild(v); lg.appendChild(row);
+    });
+    box.appendChild(lg);
     document.getElementById('wxHead').textContent = wxState==='loading' ? 'Loading weather…' : (wxState==='error' ? 'Could not load weather' : (list.length ? 'Weather ahead (at your average speed)' : 'No rain, snow, ice or warnings found ahead'));
     list.slice(0,40).forEach(function(it){
       var el = document.createElement('div'); el.className = 'it';
