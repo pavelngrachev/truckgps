@@ -254,7 +254,7 @@
   var specsL={0:{id:'gpsBtn',html:'INF',label:'Information'}};
   specsL[1]={id:'zinBtn',key:'e9',html:'<span class="pl">+</span>',label:'Zoom in / back to my location'};
   specsL[2]={id:'zoutBtn',key:'e10',html:'<span id="scaleTxt">1</span>',label:'Zoom out (shows the scale)'};
-  specsL[3]={id:'cmpBtn',key:'e11',html:'<span id="cmpTxt"><span style="color:#ff5a5f">N</span>--</span>',label:'Heading / map rotation'};
+  specsL[3]={id:'cmpBtn',key:'e11',html:'<span id="cmpTxt"><span style="color:#ff5a5f">N--</span></span>',label:'Heading / map rotation'};
   specsL[n-2]={id:'curSpd',key:'e13',html:'<span id="curSpdTxt" style="color:#ff5a5f">--</span>',label:'Current speed'};
   specsL[4]={empty:true,key:'e12',text:'12'};
   specsL[n-1]={id:'setBtn',key:'menu',html:'SET',label:'Settings'};
@@ -498,10 +498,11 @@
     var blue = (k===0 || k===1 || k===7);
     return t+'<span style="color:'+(blue ? '#4da3ff' : '#ff5a5f')+'">'+AR[k]+'</span>';
   }
-  function windTxt(){ return windInfo ? fmtWind(windInfo,lastHeading) : '--'; }
+  var RDASH = '<span style="color:#ff5a5f">--</span>';
+  function windTxt(){ return windInfo ? fmtWind(windInfo,lastHeading) : RDASH; }
   // strongest wind now or later along the route (by gust)
   function routeWindTxt(){
-    if(!routeMeta) return '--';
+    if(!routeMeta) return RDASH;
     var a = pos ? snap(pos.lat,pos.lng).along : 0, best = null;
     function val(w){ return w.gust!=null ? w.gust : w.spd; }
     if(windInfo) best = {w:windInfo,h:lastHeading,mi:0};
@@ -509,18 +510,18 @@
       if(w.al < a-1500) return;
       if(!best || val(w)>val(best.w)) best = {w:w,h:w.hd,mi:Math.max(0,(w.al-a)/1609.34)};
     });
-    if(!best) return '--';
+    if(!best) return RDASH;
     return fmtWind(best.w,best.h)+' '+Math.round(best.mi);
   }
   function loadWind(){
     if(!pos || windBusy) return;
     if(windPos && Date.now()-windT<300000 && windPos.distanceTo(pos)<15000) return;
     windBusy = true;
-    var u = 'https://api.open-meteo.com/v1/forecast?latitude='+pos.lat.toFixed(3)+'&longitude='+pos.lng.toFixed(3)+'&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl&wind_speed_unit=mph';
+    var u = 'https://api.open-meteo.com/v1/forecast?latitude='+pos.lat.toFixed(3)+'&longitude='+pos.lng.toFixed(3)+'&current=temperature_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl&wind_speed_unit=mph&temperature_unit=celsius';
     fetch(u).then(function(r){ return r.json() }).then(function(d){
       var c = d.current;
       if(c && c.wind_speed_10m!=null && c.wind_direction_10m!=null){
-        windInfo = {dir:c.wind_direction_10m,spd:c.wind_speed_10m,gust:c.wind_gusts_10m,press:c.pressure_msl};
+        windInfo = {dir:c.wind_direction_10m,spd:c.wind_speed_10m,gust:c.wind_gusts_10m,press:c.pressure_msl,temp:c.temperature_2m};
         windT = Date.now(); windPos = pos; refreshBar();
       }
       windBusy = false;
@@ -535,20 +536,21 @@
   }, 5000);
   function updateAcc(){
     var e = document.getElementById('accTxt');
-    if(e){ e.textContent = accTxt(); e.style.color = gpsLost ? '#ff5a5f' : ''; }
+    if(e){ e.textContent = accTxt(); e.style.color = (gpsLost || accFt==null) ? '#ff5a5f' : ''; }
   }
   setInterval(function(){
     if(!gpsLost && Date.now()-lastFixT>25000) gpsLost = true;
     updateAcc();
   }, 2000);
-  function pressTxt(){ return (windInfo && windInfo.press!=null) ? (windInfo.press*0.02953).toFixed(2)+' INHG' : '--'; }
+  function pressTxt(){ return (windInfo && windInfo.press!=null) ? (windInfo.press*0.02953).toFixed(2)+' INHG' : RDASH; }
   var destTempF = null, destSeq = 0;
-  function destTxt(){ return destTempF==null ? '--' : destTempF+'°F'; }
+  function destTxt(){ return destTempF==null ? RDASH : destTempF+'°C'; }
+  function curTempTxt(){ return (windInfo && windInfo.temp!=null) ? Math.round(windInfo.temp)+'°C' : RDASH; }
   function loadDestTemp(){
     if(!routeMeta || !dest) return;
     var a = (pos && cum.length) ? snap(pos.lat,pos.lng).along : 0, total = cum.length ? cum[cum.length-1] : routeMeta.dist;
     var eta = Date.now() + Math.max(0,(total-a)/1609.34)/avgSpeed*3600000, my = ++destSeq;
-    var u = 'https://api.open-meteo.com/v1/forecast?latitude='+dest.lat.toFixed(3)+'&longitude='+dest.lng.toFixed(3)+'&hourly=temperature_2m&temperature_unit=fahrenheit&timeformat=unixtime&timezone=GMT&forecast_days=7';
+    var u = 'https://api.open-meteo.com/v1/forecast?latitude='+dest.lat.toFixed(3)+'&longitude='+dest.lng.toFixed(3)+'&hourly=temperature_2m&temperature_unit=celsius&timeformat=unixtime&timezone=GMT&forecast_days=7';
     fetch(u).then(function(r){ return r.json() }).then(function(d){
       if(my!==destSeq || !d.hourly || !d.hourly.time) return;
       var H = d.hourly, best = 0, bd = 1e18;
@@ -567,17 +569,22 @@
     if(!windInfo || windInfo.press==null) return '';
     return windInfo.press<1009 ? '#4da3ff' : (windInfo.press>1023 ? '#ff5a5f' : '');
   }
-  function elevTxt(){ return (altFt==null ? '--' : altFt.toLocaleString('en-US'))+' FT'; }
-  function fitBar(){ info.style.fontSize=''; }
+  function elevTxt(){ return altFt==null ? RDASH : altFt.toLocaleString('en-US')+' FT'; }
+  function fitBar(){
+    info.style.fontSize='';
+    var l = info.querySelector('.ln'); if(!l) return;
+    l.style.fontSize=''; var fs=19, w=info.clientWidth-26;
+    while(l.scrollWidth>w && fs>9){ fs-=0.5; l.style.fontSize=fs+'px'; }
+  }
   window.addEventListener('resize', fitBar);
   function showIdleBar(){
     info.className = 'route';
     info.style.display = 'flex';
-    info.innerHTML = '<div class="ln"><span>--</span><span>--:--</span><span class="eta">--:--</span></div>'
-      +'<div class="ln"><span>'+elevTxt()+'</span><span id="accTxt"></span></div>'
+    info.innerHTML = '<div class="ln"><span>'+RDASH+'</span><span>'+RDASH+'</span><span>'+RDASH+'</span><span>'+elevTxt()+'</span><span id="accTxt"></span><span style="color:'+pressColor()+'">'+pressTxt()+'</span></div>'
+      +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+RDASH+'</span></div>'
       +'<div class="ln"><span>'+windTxt()+'</span></div>'
-      +'<div class="ln"><span>--</span></div>'
-      +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span><span>'+destTxt()+'</span></div>';
+      +'<div class="ln">'+RDASH+'</div>';
+    fitBar(); updateAcc();
     fitBar(); updateAcc();
   }
   showIdleBar();
@@ -749,7 +756,7 @@
   }
   function setCompassText(){
     var ct = document.getElementById('cmpTxt'); if(!ct) return;
-    var d = lastHeading==null ? '--' : CARD[Math.round(lastHeading/45)%8];
+    var d = lastHeading==null ? RDASH : CARD[Math.round(lastHeading/45)%8];
     ct.innerHTML = headingUp ? d : '<span style="color:#ff5a5f">N</span>'+d;
   }
   function geometry(){
@@ -1602,11 +1609,10 @@
     info.className = 'route';
     info.style.display = 'flex';
     clearTimeout(infoTimer);
-    var html = '<div class="ln"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span></div>'
-      +'<div class="ln"><span>'+elevTxt()+'</span><span id="accTxt"></span></div>'
+    var html = '<div class="ln"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span><span id="accTxt"></span><span style="color:'+pressColor()+'">'+pressTxt()+'</span></div>'
+      +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+destTxt()+'</span></div>'
       +'<div class="ln"><span>'+windTxt()+'</span><span style="color:var(--mute)">|</span><span>'+routeWindTxt()+'</span></div>'
-      +'<div class="ln">'+(wxSpan()||'<span>--</span>')+'</div>'
-      +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span><span>'+destTxt()+'</span></div>';
+      +'<div class="ln">'+(wxSpan()||RDASH)+'</div>';
     if(html!==lastBar){ info.innerHTML = html; lastBar = html; }
     fitBar(); updateAcc();
   }
