@@ -504,7 +504,7 @@
     var AR = ['↑','↗','→','↘','↓','↙','←','↖'];
     var t = CARD[Math.round(w.dir/45)%8]+Math.round(w.spd)+'G'+(w.gust!=null ? Math.round(w.gust) : '--');
     t += AR[Math.round(((w.dir+180)%360)/45)%8];
-    if(heading==null) return t+'<span style="color:#ff5a5f">--</span>';
+    if(heading==null) return t+'<span style="color:#ff5a5f">-</span>';
     var rel = ((w.dir+180-heading)%360+360)%360, k = Math.round(rel/45)%8;
     var blue = (k===0 || k===1 || k===7);
     return t+'<span style="color:'+(blue ? '#4da3ff' : '#ff5a5f')+'">'+AR[k]+'</span>';
@@ -523,7 +523,7 @@
       if(!best || val(w)>val(best.w)) best = {w:w,h:w.hd,mi:Math.max(0,(w.al-a)/1609.34)};
     });
     if(!best) return RDASH;
-    return fmtWind(best.w,best.h)+' '+Math.round(best.mi);
+    return fmtWind(best.w,best.h)+' '+(best.mi<10 ? (Math.round(best.mi*10)/10).toString() : Math.round(best.mi));
   }
   function loadWind(){
     if(!pos || windBusy) return;
@@ -1683,7 +1683,7 @@
     clearTimeout(infoTimer);
     var html = '<div class="ln"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span><span id="accTxt"></span></div>'
       +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+destTxt()+'</span></div>'
-      +'<div class="ln"><span>'+windTxt()+'</span><span style="color:var(--mute)">|</span><span>'+routeWindTxt()+'</span></div>'
+      +'<div class="ln"><span>'+windTxt()+routeWindTxt()+'</span></div>'
       +'<div class="ln">'+(wxSpan()||RDASH)+'</div>'
       +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span></div>';
     if(html!==lastBar){ info.innerHTML = html; lastBar = html; }
