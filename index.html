@@ -605,7 +605,7 @@
   }, 2000);
   function pressColor(){
     if(!windInfo || windInfo.press==null) return '';
-    return windInfo.press<1009 ? '#4da3ff' : (windInfo.press>1023 ? '#ff5a5f' : '');
+    var ih = windInfo.press*0.02953; return ih<29.80 ? '#4da3ff' : (ih>30.20 ? '#ff5a5f' : '');
   }
   function elevTxt(){ return altFt==null ? RDASH : altFt.toLocaleString('en-US'); }
   function fitBar(){ info.style.fontSize=''; var l=info.querySelector('.ln'); if(l) l.style.fontSize=''; }
@@ -1573,7 +1573,10 @@
       ['BI','#c084fc',1,'Black ice'],
       ['HA','#ff5a5f',1,'Hail'],
       ['TO','#ff5a5f',1,'Tornado'],
-      ['HU','#ff5a5f',1,'Hurricane']
+      ['HU','#ff5a5f',1,'Hurricane'],
+      ['29.92','#fff',0,'Normal pressure'],
+      ['<29.80','#4da3ff',0,'Low pressure'],
+      ['>30.20','#ff5a5f',0,'High pressure']
     ];
 
 
