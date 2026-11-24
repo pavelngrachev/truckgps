@@ -70,7 +70,7 @@
   #rowB{left:8px;right:8px}
   #rowT{top:calc(env(safe-area-inset-top,0px) + 8px)}
   #rowB{bottom:calc(env(safe-area-inset-bottom,0px) + 8px)}
-  .fab{position:relative;flex:none;width:64px;height:60px;border-radius:14px;border:2px solid var(--line);background:var(--panel);color:var(--text);font-size:19px;font-weight:700;line-height:1.1;padding:0 4px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .fab{position:relative;flex:none;width:64px;height:60px;border-radius:14px;border:2px solid var(--line);background:var(--panel);color:var(--text);font-size:19px;font-weight:500;line-height:1.1;padding:0 2px;display:flex;flex-direction:column;align-items:center;justify-content:center}
   .fab small{display:block;font-size:11px;font-weight:600;color:var(--mute);margin-top:1px}
   .fab i{display:none;position:absolute;left:5px;top:2px;font-size:10px;font-style:normal;font-weight:600;color:var(--mute)}
   #colR .fab,#colL .fab{flex:1 1 0;height:auto;min-height:0}
@@ -110,9 +110,9 @@
   #speedVal{font-size:26px;font-weight:700;min-width:96px}
   #speedPop .done{width:100%;padding:12px;font-size:16px;font-weight:600;border:0;border-radius:8px;background:var(--line);color:var(--text)}
 
-  #info{position:absolute;z-index:1000;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);height:var(--bh,60px);background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:0 12px;font-size:19px;font-weight:700;display:flex;flex-direction:column;justify-content:center;overflow:hidden}
+  #info{position:absolute;z-index:1000;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);height:var(--bh,60px);background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:0 12px;font-size:19px;font-weight:500;display:flex;flex-direction:column;justify-content:center;overflow:hidden}
   #info small{display:block;font-weight:500;color:var(--mute);font-size:14px;line-height:1.25}
-  #info.route{flex-direction:row;align-items:center;justify-content:center;padding:0 3px;font-size:19px;font-weight:700}
+  #info.route{flex-direction:row;align-items:center;justify-content:center;padding:0 3px;font-size:19px;font-weight:500}
   #info.route .row{width:100%;min-width:0;display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;column-gap:.28em;row-gap:.05em;line-height:1.15;letter-spacing:-.01em}
   #info.route .row span{white-space:nowrap}
   #info.route .row span.eta{color:#4da3ff}
@@ -121,9 +121,9 @@
   #info.route small{font-size:12px;font-weight:600;color:var(--mute)}
   #turn{position:absolute;z-index:1000;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);height:calc(var(--bh,60px)*2 + 8px);background:var(--panel);border:2px solid var(--line);border-radius:14px;display:flex;align-items:center;gap:14px;padding:0 14px;overflow:hidden}
   #turn .tl{display:flex;flex-direction:column;align-items:center;min-width:104px}
-  #turn .ar{font-size:54px;line-height:1;color:var(--accent);font-weight:700}
-  #turn .d{font-size:30px;font-weight:700;margin-top:2px;white-space:nowrap}
-  #turn .t{flex:1;font-size:24px;font-weight:700;line-height:1.2;min-width:0;overflow:hidden}
+  #turn .ar{font-size:54px;line-height:1;color:var(--accent);font-weight:400}
+  #turn .d{font-size:30px;font-weight:500;margin-top:2px;white-space:nowrap}
+  #turn .t{flex:1;font-size:24px;font-weight:500;line-height:1.2;min-width:0;overflow:hidden}
   #trkPop,#wxPop,#setPop,#infoPop{left:80px;right:80px;top:calc(env(safe-area-inset-top,0px) + var(--bh,60px)*2 + 24px);bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px) + 24px);transform:none;min-width:0;padding:8px;flex-direction:column;gap:6px;overflow:hidden}
   #trkPop.open,#wxPop.open,#setPop.open,#infoPop.open{display:flex}
   .seg{display:flex;gap:6px;flex-wrap:wrap}
@@ -239,7 +239,7 @@
 (function(){
   var layer=document.getElementById('btnLayer'), zR=document.getElementById('colR'), zL=document.getElementById('colL');
   var done=document.getElementById('editDone'), body=document.body;
-  var GAP=8, W=64;
+  var GAP=8, W=64, BW=52;
   var rr=zR.getBoundingClientRect();
   var NN=Math.max(8,Math.min(11,Math.floor((rr.height+8)/52)));
   var n=Math.max(7,NN-3);
@@ -308,14 +308,14 @@
   function geom(){
     var a=zR.getBoundingClientRect(), c=zL.getBoundingClientRect();
     var h=(a.height-(NN-1)*GAP)/NN, y0=a.top+2*(h+GAP);
-    slots=[];
-    for(var i=0;i<n;i++) slots.push({x:a.left,y:y0+i*(h+GAP),h:h});
+    slots=[]; BW=h;
+    for(var i=0;i<n;i++) slots.push({x:a.right-BW,y:y0+i*(h+GAP),h:h});
     for(var j=0;j<n;j++) slots.push({x:c.left,y:y0+j*(h+GAP),h:h});
     document.documentElement.style.setProperty('--bh',h+'px');
   }
   function place(b,i){
     var s=slots[i];
-    b.style.height=s.h+'px';
+    b.style.height=s.h+'px'; b.style.width=BW+'px';
     b.style.transform='translate('+s.x+'px,'+s.y+'px)';
   }
   function placeAll(){ geom(); order.forEach(function(b,i){place(b,i)}); }
@@ -354,7 +354,7 @@
   function nearest(x,y){
     var best=0,bd=1e12;
     slots.forEach(function(s,i){
-      var dx=x-(s.x+W/2), dy=y-(s.y+s.h/2), d=dx*dx+dy*dy;
+      var dx=x-(s.x+BW/2), dy=y-(s.y+s.h/2), d=dx*dx+dy*dy;
       if(d<bd){bd=d;best=i}
     });
     return best;
