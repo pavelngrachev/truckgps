@@ -559,7 +559,7 @@
   }, 2000);
   function pressTxt(){ return (windInfo && windInfo.press!=null) ? (windInfo.press*0.02953).toFixed(2)+' INHG' : RDASH; }
   var destTempF = null, destSeq = 0;
-  function tempSpan(v){ var t = v+'°F'; return v<=32 ? '<span class="flash" style="color:#4da3ff">'+t+'</span>' : t; }
+  function tempSpan(v){ return v<=32 ? '<span class="flash" style="color:#4da3ff">'+v+'</span>°F' : v+'°F'; }
   function destTxt(){ return destTempF==null ? RDASH : tempSpan(destTempF); }
   function curTempTxt(){ return (windInfo && windInfo.temp!=null) ? tempSpan(Math.round(windInfo.temp)) : RDASH; }
   function loadDestTemp(){
@@ -595,7 +595,7 @@
       +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+RDASH+'</span></div>'
       +'<div class="ln"><span>'+windTxt()+'</span></div>'
       +'<div class="ln">'+RDASH+'</div>'
-      +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span></div>';
+      +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span><span>'+roadTxt()+'</span></div>';
     fitBar(); updateAcc();
     fitBar(); updateAcc();
   }
@@ -635,7 +635,7 @@
     tripUpdate(p);
     updateCompass(p);
     updateLimit(mph);
-    loadWind();
+    loadWind(); loadRoad();
     updateAcc();
     if(!routeMeta && info.className==='route') showIdleBar();
     if(routeLine) updateRouteInfo(mph);
@@ -693,6 +693,58 @@
       }).catch(function(){ clearTimeout(timer); return tryHost(i+1); });
     }
     return tryHost(0);
+  }
+
+
+  // --- road name + mile marker (OpenStreetMap) ---
+  var roadInfo = null, roadBusy = false, roadPos = null, roadT = 0;
+  function roadTxt(){
+    if(!roadInfo) return RDASH;
+    return '<span style="color:#3ddc84">'+roadInfo.name+(roadInfo.mm!=null ? ' '+roadInfo.mm : '')+'</span>';
+  }
+  function loadRoad(){
+    if(!pos || roadBusy) return;
+    if(roadPos && roadPos.distanceTo(pos)<250 && Date.now()-roadT<120000) return;
+    if(Date.now()-roadT<20000) return;
+    roadBusy = true; roadT = Date.now();
+    var la = pos.lat.toFixed(5), lo = pos.lng.toFixed(5), here = pos;
+    var q = '[out:json][timeout:20];(way(around:40,'+la+','+lo+')[highway~"^(motorway|trunk|primary|secondary|tertiary|motorway_link|trunk_link)$"];'
+      +'node(around:3000,'+la+','+lo+')[highway=milestone];node(around:3000,'+la+','+lo+')[highway=mile_marker];);out tags center;';
+    ovp(q).then(function(d){
+      var rank = {motorway:0,trunk:1,primary:2,secondary:3,tertiary:4,motorway_link:5,trunk_link:6}, way = null, marks = [];
+      (d.elements||[]).forEach(function(e){
+        var t = e.tags||{};
+        if(e.type==='way'){
+          if(!(t.ref||t.name)) return;
+          if(!way || rank[t.highway]<rank[way.tags.highway]) way = e;
+        } else if(e.type==='node' && e.lat!=null){
+          var v = parseFloat(t.distance!=null ? t.distance : (t.pk!=null ? t.pk : t.ref));
+          if(!isNaN(v)) marks.push({v:v,ll:L.latLng(e.lat,e.lon),d:here.distanceTo(L.latLng(e.lat,e.lon))});
+        }
+      });
+      var name = null;
+      if(way){
+        var ref = (way.tags.ref||'').split(';')[0].trim();
+        name = ref ? ref.replace(/\s+/,'-') : way.tags.name;
+      }
+      var mm = null;
+      if(marks.length){
+        marks.sort(function(a,b){ return a.d-b.d });
+        var m1 = marks[0];
+        if(m1.d<2000){
+          mm = m1.v;
+          var m2 = null;
+          for(var i=1;i<marks.length;i++){ if(marks[i].v!==m1.v && marks[i].ll.distanceTo(m1.ll)<4000){ m2 = marks[i]; break; } }
+          if(m2){
+            var seg = m1.ll.distanceTo(m2.ll), f = seg>0 ? Math.min(1,Math.max(0,(m1.d*m1.d+seg*seg-m2.d*m2.d)/(2*seg*seg))) : 0;
+            mm = m1.v+(m2.v-m1.v)*f;
+          }
+          mm = Math.round(mm*10)/10;
+        }
+      }
+      if(name){ roadInfo = {name:name,mm:mm}; roadPos = here; refreshBar(); }
+      roadBusy = false;
+    }).catch(function(){ roadBusy = false; });
   }
 
   // --- speed limit (OpenStreetMap maxspeed, loaded around your position) ---
@@ -1689,7 +1741,7 @@
       +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+destTxt()+'</span></div>'
       +'<div class="ln"><span>'+windTxt()+' '+routeWindTxt()+'</span></div>'
       +'<div class="ln">'+(wxSpan()||RDASH)+'</div>'
-      +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span></div>';
+      +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span><span>'+roadTxt()+'</span></div>';
     if(html!==lastBar){ info.innerHTML = html; lastBar = html; }
     fitBar(); updateAcc();
   }
