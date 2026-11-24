@@ -527,7 +527,7 @@
       windBusy = false;
     }).catch(function(){ windBusy = false; windT = Date.now()-240000; });
   }
-  function accTxt(){ return gpsLost ? '±NS FT' : (accFt==null ? '--' : '±'+accFt+' FT'); }
+  function accTxt(){ return gpsLost ? '±NS' : (accFt==null ? '--' : '±'+accFt); }
   setInterval(function(){
     if(!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(function(p){
@@ -570,12 +570,7 @@
     return windInfo.press<1009 ? '#4da3ff' : (windInfo.press>1023 ? '#ff5a5f' : '');
   }
   function elevTxt(){ return altFt==null ? RDASH : altFt.toLocaleString('en-US')+' FT'; }
-  function fitBar(){
-    info.style.fontSize='';
-    var l = info.querySelector('.ln'); if(!l) return;
-    l.style.fontSize=''; var fs=19, w=info.clientWidth-26;
-    while(l.scrollWidth>w && fs>9){ fs-=0.5; l.style.fontSize=fs+'px'; }
-  }
+  function fitBar(){ info.style.fontSize=''; var l=info.querySelector('.ln'); if(l) l.style.fontSize=''; }
   window.addEventListener('resize', fitBar);
   function showIdleBar(){
     info.className = 'route';
