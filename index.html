@@ -529,7 +529,7 @@
     if(!pos || windBusy) return;
     if(windPos && Date.now()-windT<300000 && windPos.distanceTo(pos)<15000) return;
     windBusy = true;
-    var u = 'https://api.open-meteo.com/v1/forecast?latitude='+pos.lat.toFixed(3)+'&longitude='+pos.lng.toFixed(3)+'&current=temperature_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl&wind_speed_unit=mph&temperature_unit=celsius';
+    var u = 'https://api.open-meteo.com/v1/forecast?latitude='+pos.lat.toFixed(3)+'&longitude='+pos.lng.toFixed(3)+'&current=temperature_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl&wind_speed_unit=mph&temperature_unit=fahrenheit';
     fetch(u).then(function(r){ return r.json() }).then(function(d){
       var c = d.current;
       if(c && c.wind_speed_10m!=null && c.wind_direction_10m!=null){
@@ -556,13 +556,13 @@
   }, 2000);
   function pressTxt(){ return (windInfo && windInfo.press!=null) ? (windInfo.press*0.02953).toFixed(2)+' INHG' : RDASH; }
   var destTempF = null, destSeq = 0;
-  function destTxt(){ return destTempF==null ? RDASH : destTempF+'°C'; }
-  function curTempTxt(){ return (windInfo && windInfo.temp!=null) ? Math.round(windInfo.temp)+'°C' : RDASH; }
+  function destTxt(){ return destTempF==null ? RDASH : destTempF; }
+  function curTempTxt(){ return (windInfo && windInfo.temp!=null) ? Math.round(windInfo.temp) : RDASH; }
   function loadDestTemp(){
     if(!routeMeta || !dest) return;
     var a = (pos && cum.length) ? snap(pos.lat,pos.lng).along : 0, total = cum.length ? cum[cum.length-1] : routeMeta.dist;
     var eta = Date.now() + Math.max(0,(total-a)/1609.34)/avgSpeed*3600000, my = ++destSeq;
-    var u = 'https://api.open-meteo.com/v1/forecast?latitude='+dest.lat.toFixed(3)+'&longitude='+dest.lng.toFixed(3)+'&hourly=temperature_2m&temperature_unit=celsius&timeformat=unixtime&timezone=GMT&forecast_days=7';
+    var u = 'https://api.open-meteo.com/v1/forecast?latitude='+dest.lat.toFixed(3)+'&longitude='+dest.lng.toFixed(3)+'&hourly=temperature_2m&temperature_unit=fahrenheit&timeformat=unixtime&timezone=GMT&forecast_days=7';
     fetch(u).then(function(r){ return r.json() }).then(function(d){
       if(my!==destSeq || !d.hourly || !d.hourly.time) return;
       var H = d.hourly, best = 0, bd = 1e18;
@@ -581,14 +581,14 @@
     if(!windInfo || windInfo.press==null) return '';
     return windInfo.press<1009 ? '#4da3ff' : (windInfo.press>1023 ? '#ff5a5f' : '');
   }
-  function elevTxt(){ return altFt==null ? RDASH : altFt.toLocaleString('en-US')+' FT'; }
+  function elevTxt(){ return altFt==null ? RDASH : altFt.toLocaleString('en-US'); }
   function fitBar(){ info.style.fontSize=''; var l=info.querySelector('.ln'); if(l) l.style.fontSize=''; }
   window.addEventListener('resize', fitBar);
   function showIdleBar(){
     info.className = 'route';
     info.style.display = 'flex';
-    info.innerHTML = '<div class="ln"><span>'+RDASH+'</span><span>'+RDASH+'</span><span>'+RDASH+'</span><span>'+elevTxt()+'</span><span id="accTxt"></span></div>'
-      +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+RDASH+'</span></div>'
+    info.innerHTML = '<div class="ln"><span>'+RDASH+'</span><span>'+RDASH+'</span><span>'+RDASH+'</span><span>'+elevTxt()+'</span><span id="accTxt"></span><span>FT</span></div>'
+      +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+RDASH+'</span><span>F</span></div>'
       +'<div class="ln"><span>'+windTxt()+'</span></div>'
       +'<div class="ln">'+RDASH+'</div>'
       +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span></div>';
@@ -1681,8 +1681,8 @@
     info.className = 'route';
     info.style.display = 'flex';
     clearTimeout(infoTimer);
-    var html = '<div class="ln"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span><span id="accTxt"></span></div>'
-      +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+destTxt()+'</span></div>'
+    var html = '<div class="ln"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span><span id="accTxt"></span><span>FT</span></div>'
+      +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+destTxt()+'</span><span>F</span></div>'
       +'<div class="ln"><span>'+windTxt()+routeWindTxt()+'</span></div>'
       +'<div class="ln">'+(wxSpan()||RDASH)+'</div>'
       +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span></div>';
