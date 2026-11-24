@@ -501,6 +501,10 @@
   }
   var windInfo = null, windBusy = false, windT = 0, windPos = null;
   function fmtWind(w,heading){
+    var strong = ((w.gust!=null ? w.gust : w.spd) >= 30), r = fmtWind0(w,heading);
+    return strong ? '<span class="flash" style="color:#ff5a5f">'+r+'</span>' : r;
+  }
+  function fmtWind0(w,heading){
     var AR = ['↑','↗','→','↘','↓','↙','←','↖'];
     var t = CARD[Math.round(w.dir/45)%8]+Math.round(w.spd)+'G'+(w.gust!=null ? Math.round(w.gust) : '--');
     t += AR[Math.round(((w.dir+180)%360)/45)%8];
@@ -556,8 +560,9 @@
   }, 2000);
   function pressTxt(){ return (windInfo && windInfo.press!=null) ? (windInfo.press*0.02953).toFixed(2)+' INHG' : RDASH; }
   var destTempF = null, destSeq = 0;
-  function destTxt(){ return destTempF==null ? RDASH : destTempF+'°F'; }
-  function curTempTxt(){ return (windInfo && windInfo.temp!=null) ? Math.round(windInfo.temp)+'°F' : RDASH; }
+  function tempSpan(v){ var t = v+'°F'; return v<=32 ? '<span class="flash" style="color:#4da3ff">'+t+'</span>' : t; }
+  function destTxt(){ return destTempF==null ? RDASH : tempSpan(destTempF); }
+  function curTempTxt(){ return (windInfo && windInfo.temp!=null) ? tempSpan(Math.round(windInfo.temp)) : RDASH; }
   function loadDestTemp(){
     if(!routeMeta || !dest) return;
     var a = (pos && cum.length) ? snap(pos.lat,pos.lng).along : 0, total = cum.length ? cum[cum.length-1] : routeMeta.dist;
