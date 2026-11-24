@@ -110,7 +110,7 @@
   #speedVal{font-size:26px;font-weight:700;min-width:96px}
   #speedPop .done{width:100%;padding:12px;font-size:16px;font-weight:600;border:0;border-radius:8px;background:var(--line);color:var(--text)}
 
-  #info{position:absolute;z-index:1000;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);height:var(--bh,60px);background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:0 12px;font-size:19px;font-weight:500;display:flex;flex-direction:column;justify-content:center;overflow:hidden}
+  #info{position:absolute;z-index:1000;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);height:calc(var(--bh,60px)*2 + 8px);background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:0 12px;font-size:19px;font-weight:500;display:flex;flex-direction:column;justify-content:center;overflow:hidden}
   #info small{display:block;font-weight:500;color:var(--mute);font-size:14px;line-height:1.25}
   #info.route{flex-direction:row;align-items:center;justify-content:center;padding:0 3px;font-size:19px;font-weight:500}
   #info.route .row{width:100%;min-width:0;display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;column-gap:.28em;row-gap:.05em;line-height:1.15;letter-spacing:-.01em}
@@ -124,7 +124,7 @@
   #turn .ar{font-size:54px;line-height:1;color:var(--accent);font-weight:400}
   #turn .d{font-size:30px;font-weight:500;margin-top:2px;white-space:nowrap}
   #turn .t{flex:1;font-size:24px;font-weight:500;line-height:1.2;min-width:0;overflow:hidden}
-  #trkPop,#wxPop,#setPop,#infoPop{left:80px;right:80px;top:calc(env(safe-area-inset-top,0px) + var(--bh,60px)*2 + 24px);bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px) + 24px);transform:none;min-width:0;padding:8px;flex-direction:column;gap:6px;overflow:hidden}
+  #trkPop,#wxPop,#setPop,#infoPop{left:80px;right:80px;top:calc(env(safe-area-inset-top,0px) + var(--bh,60px)*2 + 24px);bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px)*2 + 32px);transform:none;min-width:0;padding:8px;flex-direction:column;gap:6px;overflow:hidden}
   #trkPop.open,#wxPop.open,#setPop.open,#infoPop.open{display:flex}
   .seg{display:flex;gap:6px;flex-wrap:wrap}
   .seg button{flex:1 1 auto;padding:9px 8px;font-size:14px;font-weight:700;border:2px solid var(--line);border-radius:9px;background:var(--bg);color:var(--text)}
@@ -136,7 +136,7 @@
   #trkList .mapb{flex:none;border:0;border-radius:8px;background:var(--line);color:var(--text);padding:9px 11px;font-size:13px;font-weight:600}
   #trkClose,#wxClose,#setClose,#infoClose{width:100%;padding:11px;font-size:16px;font-weight:600;border:0;border-radius:8px;background:var(--line);color:var(--text)}
   #map.rot{transition:transform .6s linear}
-  #attr{position:fixed;left:80px;right:80px;bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px) + 14px);text-align:center;font-size:10px;color:#222;text-shadow:0 0 3px #fff,0 0 3px #fff;z-index:950;pointer-events:none}
+  #attr{position:fixed;left:80px;right:80px;bottom:calc(env(safe-area-inset-bottom,0px) + var(--bh,60px)*2 + 20px);text-align:center;font-size:10px;color:#222;text-shadow:0 0 3px #fff,0 0 3px #fff;z-index:950;pointer-events:none}
   .arw{width:30px;height:30px}
   @keyframes blk{0%,100%{opacity:1}50%{opacity:.1}}
   .flash{animation:blk 1s infinite}
@@ -242,7 +242,7 @@
   var GAP=8, W=64, BW=52;
   var rr=zR.getBoundingClientRect();
   var NN=Math.max(8,Math.min(11,Math.floor((rr.height+8)/52)));
-  var n=Math.max(7,NN-3);
+  var n=Math.max(7,NN-4);
 
   var specsR={
     0:{id:'layerBtn',html:'MAP',label:'Map type'},
@@ -259,6 +259,7 @@
   specsL[n-2]={id:'curSpd',key:'e13',html:'<span id="curSpdTxt">--</span>',label:'Current speed'};
   specsL[4]={id:'limBtn',key:'e12',html:'<span id="limTxt">..</span>',label:'Speed limit'};
   specsL[n-1]={id:'setBtn',key:'menu',html:'SET',label:'Settings'};
+  specsR[n-1]={empty:true,key:'e14',text:'14'};
 
   var btns={}, def={R:[],L:[]}, num=1;
   ['R','L'].forEach(function(k){
@@ -267,7 +268,8 @@
       var b=document.createElement('button');
       var tag=document.createElement('i'); tag.textContent=num;
       b.className='fab';
-      if(spec){
+      if(spec && spec.empty){ b.className='fab empty'; b.textContent=spec.text; }
+      else if(spec){
         if(spec.id==='gpsBtn') b.className='fab bad';
         b.id=spec.id; b.setAttribute('aria-label',spec.label); b.innerHTML=spec.html; b.appendChild(tag);
       } else { b.className='fab empty'; b.textContent=num; }
@@ -282,10 +284,9 @@
   var plan={R:def.R.slice(),L:def.L.slice()};
   // default order = the arrangement from the user's screenshot (used when nothing is saved on this phone/browser)
   var pref={
-    L:['layerBtn','gpsBtn','menu','speedBtn','e12','e14','e7','e13'],
-    R:['e6','e4','e5','wxBtn','e11','e8','e9','e10']
+    L:['layerBtn','gpsBtn','menu','speedBtn','e12','e14','e13'],
+    R:['e6','e4','e5','wxBtn','e11','e9','e10']
   };
-  if(n===7){ pref.R=pref.R.filter(function(k){return k!=='e8'}); pref.L=pref.L.filter(function(k){return k!=='e14'}); }
   if(pref.R.length===n && pref.L.length===n && pref.R.concat(pref.L).every(function(k){return btns[k]})) plan=pref;
   try{
     var sv=JSON.parse(localStorage.getItem('layout3')||'null');
