@@ -516,17 +516,32 @@
   function curHeading(){ return moveNow ? lastHeading : null; }
   function windTxt(){ return windInfo ? fmtWind(windInfo,curHeading()) : RDASH; }
   // strongest wind now or later along the route (by gust)
+  var stCache = {}, stBusy = {};
+  function stateAt(lat,lng){
+    var k = lat.toFixed(1)+','+lng.toFixed(1);
+    if(stCache[k]!==undefined) return stCache[k];
+    if(!stBusy[k] && Object.keys(stBusy).length<3){
+      stBusy[k] = 1;
+      fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=5&addressdetails=1&lat='+lat.toFixed(3)+'&lon='+lng.toFixed(3))
+        .then(function(r){ return r.json() }).then(function(j){
+          var c = j && j.address && j.address['ISO3166-2-lvl4'];
+          stCache[k] = c ? c.split('-')[1] : ''; delete stBusy[k]; refreshBar();
+        }).catch(function(){ delete stBusy[k]; });
+    }
+    return '';
+  }
   function routeWindTxt(){
     if(!routeMeta) return RDASH;
     var a = pos ? snap(pos.lat,pos.lng).along : 0, best = null;
     function val(w){ return w.gust!=null ? w.gust : w.spd; }
-    if(windInfo) best = {w:windInfo,h:curHeading(),mi:0};
+    if(windInfo) best = {w:windInfo,h:curHeading(),mi:0,lat:pos?pos.lat:null,lng:pos?pos.lng:null};
     wxWinds.forEach(function(w){
       if(w.al < a-1500) return;
-      if(!best || val(w)>val(best.w)) best = {w:w,h:w.hd,mi:Math.max(0,(w.al-a)/1609.34)};
+      if(!best || val(w)>val(best.w)) best = {w:w,h:w.hd,mi:Math.max(0,(w.al-a)/1609.34),lat:w.lat,lng:w.lng};
     });
     if(!best) return RDASH;
-    return fmtWind(best.w,best.h)+' '+(best.mi<10 ? (Math.round(best.mi*10)/10).toString() : Math.round(best.mi));
+    var st = best.lat!=null ? stateAt(best.lat,best.lng) : '';
+    return fmtWind(best.w,best.h)+' '+(best.mi<10 ? (Math.round(best.mi*10)/10).toString() : Math.round(best.mi))+(st ? ' '+st : '');
   }
   function loadWind(){
     if(!pos || windBusy) return;
@@ -559,7 +574,7 @@
   }, 2000);
   function pressTxt(){ return (windInfo && windInfo.press!=null) ? (windInfo.press*0.02953).toFixed(2)+' INHG' : RDASH; }
   var destTempF = null, destSeq = 0;
-  function tempSpan(v){ return v<=32 ? '<span class="flash" style="color:#4da3ff">'+v+'</span>°F' : v+'°F'; }
+  function tempSpan(v){ return v<=32 ? '<span class="flash" style="color:#ff5a5f">'+v+'</span>°F' : v+'°F'; }
   function destTxt(){ return destTempF==null ? RDASH : tempSpan(destTempF); }
   function curTempTxt(){ return (windInfo && windInfo.temp!=null) ? tempSpan(Math.round(windInfo.temp)) : RDASH; }
   function loadDestTemp(){
@@ -1433,7 +1448,7 @@
     if(!routeMeta || !cum.length) return;
     var my = ++wxSeq; wxState = 'loading';
     var a = pos ? snap(pos.lat,pos.lng).along : 0, total = cum[cum.length-1];
-    var pts = [], step = 20*1609.34, maxD = 300*1609.34;
+    var pts = [], step = Math.max(20*1609.34,(total-a)/120), maxD = total;
     for(var d=0; d<=maxD && a+d<=total; d+=step){
       var ll = pointAt(a+d);
       pts.push({al:a+d,lat:ll.lat,lng:ll.lng,hd:routeHeadingAt(a+d),eta:Date.now()+(d/1609.34)/avgSpeed*3600000});
@@ -1441,7 +1456,7 @@
     if(!pts.length){ wxItems=[]; wxState='ok'; return }
     var u = 'https://api.open-meteo.com/v1/forecast?latitude='+pts.map(function(p){return p.lat.toFixed(3)}).join(',')
       +'&longitude='+pts.map(function(p){return p.lng.toFixed(3)}).join(',')
-      +'&hourly=temperature_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=mph&timeformat=unixtime&timezone=GMT&forecast_days=2';
+      +'&hourly=temperature_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=mph&timeformat=unixtime&timezone=GMT&forecast_days=4';
     var fc = fetch(u).then(function(r){return r.json()}).catch(function(){return null});
     var alertPts = pts.filter(function(p,i){return i%2===0}).slice(0,8);
     var al = Promise.all(alertPts.map(function(p){
@@ -1460,7 +1475,7 @@
           var r = classifyFc(H.temperature_2m[best],H.precipitation[best],H.weather_code[best]);
           if(r){ r.al=p.al; r.eta=p.eta; items.push(r); }
           if(H.wind_speed_10m && H.wind_direction_10m && H.wind_direction_10m[best]!=null){
-            winds.push({dir:H.wind_direction_10m[best],spd:H.wind_speed_10m[best],gust:H.wind_gusts_10m ? H.wind_gusts_10m[best] : null,hd:p.hd,al:p.al});
+            winds.push({dir:H.wind_direction_10m[best],spd:H.wind_speed_10m[best],gust:H.wind_gusts_10m ? H.wind_gusts_10m[best] : null,hd:p.hd,al:p.al,lat:p.lat,lng:p.lng});
           }
         });
       }
