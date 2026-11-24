@@ -579,7 +579,7 @@
   }, 2000);
   function pressTxt(){ return (windInfo && windInfo.press!=null) ? (windInfo.press*0.02953).toFixed(2)+' INHG' : RDASH; }
   var destTempF = null, destSeq = 0;
-  function tempSpan(v){ return v<=32 ? '<span class="flash" style="color:#ff5a5f">'+v+'</span>°F' : v+'°F'; }
+  function tempSpan(v){ return v<=32 ? '<span class="flash" style="color:#ff5a5f">'+v+'</span>°F' : '<span style="color:#4da3ff">'+v+'°F</span>'; }
   function destTxt(){ return destTempF==null ? RDASH : tempSpan(destTempF); }
   function curTempTxt(){ return (windInfo && windInfo.temp!=null) ? tempSpan(Math.round(windInfo.temp)) : RDASH; }
   function loadDestTemp(){
@@ -615,7 +615,7 @@
       +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+RDASH+'</span></div>'
       +'<div class="ln"><span>'+windTxt()+'</span></div>'
       +'<div class="ln">'+RDASH+'</div>'
-      +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span><span>'+roadTxt()+'</span></div>';
+      +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span>'+roadTxt()+'</div>';
     fitBar(); updateAcc();
     fitBar(); updateAcc();
   }
@@ -718,9 +718,18 @@
 
   // --- road name + mile marker (OpenStreetMap) ---
   var roadInfo = null, roadBusy = false, roadPos = null, roadT = 0;
+  var GREEN = '#14a35a';
   function roadTxt(){
-    if(!roadInfo) return RDASH;
-    return '<span style="color:#3ddc84">'+roadInfo.name+(roadInfo.mm!=null ? ' '+roadInfo.mm : '')+'</span>';
+    var rd = roadInfo ? '<span style="color:'+GREEN+'">'+roadInfo.name+' mm '+Math.round(roadInfo.mm)+'</span>' : RDASH;
+    return rd+tollTxt();
+  }
+  function tollTxt(){
+    var p = null;
+    if(routeMeta && tollSegs.length && pos && cum.length){
+      var al = snap(pos.lat,pos.lng).along;
+      tollSegs.forEach(function(t){ if(al>=t.a-50 && al<=t.b+50) p = (p||0)+t.usd; });
+    }
+    return '<span>$</span>'+(p!=null ? '<span>'+(p<10 ? p.toFixed(2) : Math.round(p))+'</span>' : RDASH);
   }
   function loadRoad(){
     if(!pos || roadBusy) return;
@@ -762,7 +771,7 @@
           mm = Math.round(mm*10)/10;
         }
       }
-      if(name){ roadInfo = {name:name,mm:mm}; roadPos = here; refreshBar(); }
+      roadInfo = (name && mm!=null) ? {name:name,mm:mm} : null; roadPos = here; refreshBar();
       roadBusy = false;
     }).catch(function(){ roadBusy = false; });
   }
@@ -1010,7 +1019,7 @@
   document.getElementById('spDone').onclick = function(){ speedPop.classList.remove('open') };
 
   // --- search and route ---
-  var routeLine = null, routePts = [], dest = null, destMarker = null, routeMeta = null, rerouting = false;
+  var tollSegs = [], routeLine = null, routePts = [], dest = null, destMarker = null, routeMeta = null, rerouting = false;
   renderSpeed();
 
   function geocode(q){
@@ -1139,9 +1148,9 @@
   }
   function fetchRouteHere(a,b){
     var u = 'https://router.hereapi.com/v8/routes?transportMode=truck&origin='+a.lat+','+a.lng+'&destination='+b.lat+','+b.lng
-      +'&return=polyline,summary,actions,instructions&lang=en-US&units=imperial'
+      +'&return=polyline,summary,actions,instructions,tolls&spans=tollSystems&currency=USD&lang=en-US&units=imperial'
       +'&vehicle[height]=411&vehicle[width]=259&vehicle[length]=2130&vehicle[grossWeight]=36287'
-      +'&vehicle[weightPerAxle]=7711&vehicle[axleCount]=5&vehicle[trailerCount]=1'
+      +'&vehicle[weightPerAxle]=7711&vehicle[axleCount]=5&vehicle[trailerCount]=1&vehicle[type]=tractor'
       +(hazmat ? '&vehicle[shippedHazardousGoods]=explosive' : '')
       +'&apikey='+encodeURIComponent(hereKey);
     return fetch(u).then(function(r){
@@ -1152,9 +1161,25 @@
     }).then(function(d){
       var rt = d.routes && d.routes[0];
       if(!rt) throw new Error('No truck route found');
-      var coords=[], steps=[], dist=0, dur=0, warn=false;
+      var coords=[], steps=[], dist=0, dur=0, warn=false, tollRaw=[];
       rt.sections.forEach(function(sec){
-        var pts = decodeFlex(sec.polyline);
+        var pts = decodeFlex(sec.polyline), base0 = coords.length;
+        try{
+          var price = {};
+          (sec.tolls||[]).forEach(function(tl){
+            var best = null;
+            (tl.fares||[]).forEach(function(f){ if(f.price && typeof f.price.value==='number' && f.price.currency==='USD' && (best==null || f.price.value<best)) best = f.price.value; });
+            if(best!=null) price[tl.tollSystemRef] = (price[tl.tollSystemRef]||0)+best;
+          });
+          var sp = sec.spans||[];
+          sp.forEach(function(x,i){
+            if(!x.tollSystems || !x.tollSystems.length) return;
+            var tot = 0, ok = false;
+            x.tollSystems.forEach(function(ref){ if(price[ref]!=null){ tot += price[ref]; ok = true; } });
+            var end = (sp[i+1] ? sp[i+1].offset : pts.length-1);
+            if(ok) tollRaw.push({a:base0+x.offset,b:base0+end,usd:tot});
+          });
+        }catch(e){}
         pts.forEach(function(p){ coords.push([p[1],p[0]]) });
         dist += sec.summary.length; dur += sec.summary.duration;
         (sec.actions||[]).forEach(function(ac){
@@ -1163,7 +1188,7 @@
         });
         (sec.notices||[]).forEach(function(n){ if(n.code==='violatedVehicleRestriction') warn=true; });
       });
-      return {geometry:{coordinates:coords},distance:dist,duration:dur,legs:[{steps:steps}],warn:warn};
+      return {geometry:{coordinates:coords},distance:dist,duration:dur,legs:[{steps:steps}],warn:warn,tollRaw:tollRaw};
     });
   }
   function fetchRoute(a,b){ return hereKey ? fetchRouteHere(a,b) : fetchRouteOsrm(a,b); }
@@ -1747,6 +1772,7 @@
     routeLine = L.polyline(routePts,{color:'#2f8cff',weight:7,opacity:.9}).addTo(map);
     routeMeta = {dist:route.distance,dur:route.duration};
     prepRoute(); prepMans(route); loadStations(); loadRouteWx(); loadDestTemp();
+    tollSegs = (route.tollRaw||[]).map(function(t){ return {a:cum[Math.min(t.a,cum.length-1)]||0,b:cum[Math.min(t.b,cum.length-1)]||0,usd:t.usd}; });
     if(fit && !headingUp){ follow=false; recenter.classList.add('show'); programmatic=true; skipSave=true; map.fitBounds(routeLine.getBounds(),{padding:[60,90]}); setTimeout(function(){programmatic=false},800); setTimeout(function(){skipSave=false},1500) }
     updateRouteInfo(null,true);
     updateTurn();
@@ -1777,7 +1803,7 @@
       +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+destTxt()+'</span></div>'
       +'<div class="ln"><span>'+windTxt()+' '+routeWindTxt()+'</span></div>'
       +'<div class="ln">'+(wxSpan()||RDASH)+'</div>'
-      +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span><span>'+roadTxt()+'</span></div>';
+      +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span>'+roadTxt()+'</div>';
     if(html!==lastBar){ info.innerHTML = html; lastBar = html; }
     fitBar(); updateAcc();
   }
@@ -1909,7 +1935,7 @@
   document.getElementById('clear').onclick = function(){
     if(routeLine) map.removeLayer(routeLine);
     if(destMarker) map.removeLayer(destMarker);
-    routeLine=null;destMarker=null;dest=null;routeMeta=null;routePts=[];
+    routeLine=null;destMarker=null;dest=null;routeMeta=null;routePts=[];tollSegs=[];
     stations=[]; rests=[]; setWs('W--',null); setRa('R--');
     mans=[]; updateTurn(); wxItems=[]; wxState='none'; wxWindWorst=null; wxWinds=[]; destTempF=null;
     setInfo('Route cleared');
