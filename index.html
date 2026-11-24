@@ -556,8 +556,8 @@
   }, 2000);
   function pressTxt(){ return (windInfo && windInfo.press!=null) ? (windInfo.press*0.02953).toFixed(2)+' INHG' : RDASH; }
   var destTempF = null, destSeq = 0;
-  function destTxt(){ return destTempF==null ? RDASH : destTempF; }
-  function curTempTxt(){ return (windInfo && windInfo.temp!=null) ? Math.round(windInfo.temp) : RDASH; }
+  function destTxt(){ return destTempF==null ? RDASH : destTempF+'°F'; }
+  function curTempTxt(){ return (windInfo && windInfo.temp!=null) ? Math.round(windInfo.temp)+'°F' : RDASH; }
   function loadDestTemp(){
     if(!routeMeta || !dest) return;
     var a = (pos && cum.length) ? snap(pos.lat,pos.lng).along : 0, total = cum.length ? cum[cum.length-1] : routeMeta.dist;
@@ -588,7 +588,7 @@
     info.className = 'route';
     info.style.display = 'flex';
     info.innerHTML = '<div class="ln"><span>'+RDASH+'</span><span>'+RDASH+'</span><span>'+RDASH+'</span><span>'+elevTxt()+'</span><span id="accTxt"></span><span>FT</span></div>'
-      +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+RDASH+'</span><span>F</span></div>'
+      +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+RDASH+'</span></div>'
       +'<div class="ln"><span>'+windTxt()+'</span></div>'
       +'<div class="ln">'+RDASH+'</div>'
       +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span></div>';
@@ -1682,8 +1682,8 @@
     info.style.display = 'flex';
     clearTimeout(infoTimer);
     var html = '<div class="ln"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span><span id="accTxt"></span><span>FT</span></div>'
-      +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+destTxt()+'</span><span>F</span></div>'
-      +'<div class="ln"><span>'+windTxt()+routeWindTxt()+'</span></div>'
+      +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+destTxt()+'</span></div>'
+      +'<div class="ln"><span>'+windTxt()+' '+routeWindTxt()+'</span></div>'
       +'<div class="ln">'+(wxSpan()||RDASH)+'</div>'
       +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span></div>';
     if(html!==lastBar){ info.innerHTML = html; lastBar = html; }
