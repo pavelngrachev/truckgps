@@ -1473,7 +1473,7 @@
           var H = loc.hourly, t = H.time||[], best = 0, bd = 1e18;
           for(var k=0;k<t.length;k++){ var dd=Math.abs(t[k]*1000-p.eta); if(dd<bd){bd=dd;best=k} }
           var r = classifyFc(H.temperature_2m[best],H.precipitation[best],H.weather_code[best]);
-          if(r){ r.al=p.al; r.eta=p.eta; items.push(r); }
+          if(r){ r.al=p.al; r.eta=p.eta; r.lat=p.lat; r.lng=p.lng; items.push(r); }
           if(H.wind_speed_10m && H.wind_direction_10m && H.wind_direction_10m[best]!=null){
             winds.push({dir:H.wind_direction_10m[best],spd:H.wind_speed_10m[best],gust:H.wind_gusts_10m ? H.wind_gusts_10m[best] : null,hd:p.hd,al:p.al,lat:p.lat,lng:p.lng});
           }
@@ -1487,7 +1487,7 @@
           var s0 = Date.parse(pr.onset||pr.effective||''), e0 = Date.parse(pr.ends||pr.expires||'');
           if(!isNaN(s0) && x.p.eta < s0-1800000) return;
           if(!isNaN(e0) && x.p.eta > e0) return;
-          c.text = pr.event; c.al = x.p.al; c.eta = x.p.eta; items.push(c);
+          c.text = pr.event; c.al = x.p.al; c.eta = x.p.eta; c.lat = x.p.lat; c.lng = x.p.lng; items.push(c);
         });
       });
       var worst = null;
@@ -1507,7 +1507,7 @@
     });
     if(!best) return '<span>CLR</span>';
     var d = Math.max(0,(best.al-a)/1609.34);
-    return '<span class="'+(best.flash?'flash':'')+'" style="color:'+WXC[best.color]+'">'+best.type+(d<0.5 ? ' NOW' : ' '+Math.round(d))+'</span>';
+    return '<span class="'+(best.flash?'flash':'')+'" style="color:'+WXC[best.color]+'">'+best.type+(d<0.5 ? ' NOW' : ' '+Math.round(d))+(best.lat!=null && stateAt(best.lat,best.lng) ? ' '+stateAt(best.lat,best.lng) : '')+'</span>';
   }
   function openWx(){
     closePops(wxPop);
