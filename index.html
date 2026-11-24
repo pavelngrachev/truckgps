@@ -1457,8 +1457,9 @@
     if(c===66||c===67||c===56||c===57) return {type:'IC',text:'Freezing rain / drizzle',color:'purple',flash:true,rank:90};
     if(c===75||c===86||((c===71||c===73||c===77||c===85)&&p>=2)) return {type:'SN',text:'Heavy snow',color:'red',flash:true,rank:85};
     if(t!=null && t<=1 && (p>0 || c===48 || (c>=51&&c<=65) || (c>=80&&c<=82))) return {type:'BI',text:'Black ice risk (cold and wet)',color:'purple',flash:true,rank:80};
-    if(c>=95) return {type:'TS',text:'Thunderstorm',color:'red',flash:true,rank:70};
-    if(c===71||c===73||c===77||c===85) return {type:'SN',text:'Snow',color:'yellow',flash:false,rank:40};
+    if(c===96||c===99) return {type:'HA',text:'Hail',color:'red',flash:true,rank:75};
+    if(c>=95) return {type:'RA',text:'Thunderstorm',color:'red',flash:true,rank:70};
+    if(c===71||c===73||c===77||c===85) return {type:'SN',text:'Snow',color:'red',flash:false,rank:40};
     if(p>=7.6) return {type:'RA',text:'Heavy rain',color:'red',flash:true,rank:60};
     if(p>=2.5) return {type:'RA',text:'Moderate rain',color:'yellow',flash:false,rank:50};
     if(p>=0.1) return {type:'RA',text:'Light rain',color:'green',flash:false,rank:30};
@@ -1469,7 +1470,7 @@
     if(/hurricane|tropical storm|storm surge/i.test(ev)) return {type:'HU',color:'red',flash:true,rank:99};
     if(/ice storm|freezing rain|freezing drizzle|freezing fog/i.test(ev)) return {type:'IC',color:'purple',flash:true,rank:91};
     if(/blizzard|winter storm|heavy snow|snow squall/i.test(ev)) return {type:'SN',color:'red',flash:true,rank:86};
-    if(/severe thunderstorm/i.test(ev)) return {type:'TS',color:'red',flash:true,rank:71};
+    if(/severe thunderstorm/i.test(ev)) return {type:'RA',color:'red',flash:true,rank:71};
     return null;
   }
   function routeHeadingAt(al){
@@ -1562,20 +1563,21 @@
     var list = wxItems.filter(function(it){return it.al>=a-1500}).sort(function(x,y){return x.al-y.al});
     var box = document.getElementById('wxList'); box.innerHTML = '';
     var LEG = [
-      ['CL','#fff',0,'Clear: осадков и предупреждений впереди нет'],
-      ['RA','#3ddc84',0,'Дождь лёгкий (от 0.1 мм/ч)'],
-      ['RA','#ffd23f',0,'Дождь умеренный (от 2.5 мм/ч)'],
-      ['RA','#ff5a5f',1,'Дождь сильный (от 7.6 мм/ч)'],
-      ['SN','#ffd23f',0,'Снег обычный'],
-      ['SN','#ff5a5f',1,'Снег сильный или метель'],
-      ['IC','#c084fc',1,'Ice: ледяной дождь, изморозь'],
-      ['BI','#c084fc',1,'Black ice: холодно (до 34°F) и сыро'],
-      ['TS','#ff5a5f',1,'Thunderstorm: гроза'],
-      ['TO','#ff5a5f',1,'Tornado: предупреждение NWS'],
-      ['HU','#ff5a5f',1,'Hurricane: ураган, тропический шторм'],
-      ['WIND','<span style="color:#4da3ff">270</span>03G<span class="flash" style="color:#ff5a5f">32</span>',2,'Ветер: синие цифры направление (откуда), потом скорость и порыв. Порыв от 30 мигает красным'],
-      ['TEMP','<span class="flash" style="color:#ff5a5f">32</span>°F',2,'Температура 32°F и ниже: число мигает красным']
+      ['CL','#fff',0,'Clear'],
+      ['RA','#3ddc84',0,'Light rain'],
+      ['RA','#ffd23f',0,'Moderate rain'],
+      ['RA','#ff5a5f',1,'Heavy rain, thunderstorm'],
+      ['SN','#ff5a5f',0,'Snow'],
+      ['SN','#ff5a5f',1,'Heavy snow, blizzard'],
+      ['IC','#c084fc',1,'Freezing rain'],
+      ['BI','#c084fc',1,'Black ice'],
+      ['HA','#ff5a5f',1,'Hail'],
+      ['TO','#ff5a5f',1,'Tornado'],
+      ['HU','#ff5a5f',1,'Hurricane'],
+      ['WIND','<span style="color:#4da3ff">270</span>03G<span class="flash" style="color:#ff5a5f">32</span>',2,'Direction, speed, gust. Gust 30+ blinks'],
+      ['TEMP','<span class="flash" style="color:#ff5a5f">32</span>°F',2,'32°F and below blinks']
     ];
+
 
     var lg = document.createElement('div'); lg.style.cssText = 'padding:4px 4px 8px;border-bottom:2px solid var(--line);margin-bottom:4px';
     LEG.forEach(function(r){
