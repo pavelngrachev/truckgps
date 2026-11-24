@@ -29,6 +29,9 @@
   .frow label{width:78px;flex:none;font-weight:700;font-size:16px}
   .fld{position:relative;flex:1;min-width:0}
   .fld input{padding-right:46px !important}
+  .fld input[type=datetime-local]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;box-sizing:border-box;height:46px;line-height:20px;text-align:left;margin:0;font-family:inherit}
+  .fld input[type=datetime-local]::-webkit-date-and-time-value{text-align:left;margin:0;min-height:1.2em}
+  .fld input[type=datetime-local]::-webkit-datetime-edit{padding:0;text-align:left}
   .clr{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;border-radius:17px;background:var(--line);color:var(--text);font-size:15px}
   .sech{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px;color:var(--mute);margin-top:2px}
   #pstat:empty{display:none}
