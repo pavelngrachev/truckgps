@@ -90,10 +90,8 @@
   .fab.empty{border-style:dashed;color:var(--mute);background:rgba(29,35,41,.8)}
   .fab.on{background:var(--accent);border-color:var(--accent);color:#1a1200}
   .fab.on small{color:#1a1200}
-  #speedBtn,#curSpd,#limBtn{font-size:22px}
-  #zinBtn .pl{font-size:30px;line-height:1;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:50%;border:2px solid transparent}
+  #zinBtn .pl{font-size:19px;line-height:1}
   #zinBtn.show{background:#e5484d;border-color:#e5484d;color:#fff}
-  #zinBtn.show .pl{border-color:#fff}
   #speedBtn{background:#e5484d;border-color:#e5484d;color:#fff}
   #wxBtn.on{background:#e5484d;border-color:#e5484d;color:#fff}
   #gpsBtn,#gpsBtn.bad{background:var(--panel);border-color:var(--line);color:var(--text)}
@@ -112,10 +110,10 @@
 
   #info{position:absolute;z-index:1000;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);height:calc(var(--bh,60px)*2 + 8px);background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:0 12px;font-size:19px;font-weight:500;display:flex;flex-direction:column;justify-content:center;overflow:hidden}
   #info small{display:block;font-weight:500;color:var(--mute);font-size:14px;line-height:1.25}
-  #info.route{flex-direction:row;align-items:center;justify-content:center;padding:0 3px;font-size:19px;font-weight:500}
-  #info.route .row{width:100%;min-width:0;display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;column-gap:.28em;row-gap:.05em;line-height:1.15;letter-spacing:-.01em}
-  #info.route .row span{white-space:nowrap}
-  #info.route .row span.eta{color:#4da3ff}
+  #info.route{flex-direction:column;align-items:flex-start;justify-content:center;padding:0 12px;font-size:19px;font-weight:500}
+  #info.route .ln{display:flex;justify-content:flex-start;align-items:baseline;column-gap:.28em;line-height:1.04;height:1.04em;white-space:nowrap;letter-spacing:-.01em}
+  #info.route .ln span{white-space:nowrap}
+  #info.route .ln span.eta{color:#4da3ff}
   #wsBtn.bad{animation:blk 1s infinite}
   #info.route b{font-size:19px;font-weight:700;line-height:1.05;white-space:nowrap}
   #info.route small{font-size:12px;font-weight:600;color:var(--mute)}
@@ -551,7 +549,11 @@
   function showIdleBar(){
     info.className = 'route';
     info.style.display = 'flex';
-    info.innerHTML = '<span class="row"><span>--</span><span>--:--</span><span class="eta">--:--</span><span>'+elevTxt()+'</span><span id="accTxt"></span><span>'+windTxt()+'</span><span style="color:'+pressColor()+'">'+pressTxt()+'</span><span>'+destTxt()+'</span></span>';
+    info.innerHTML = '<div class="ln"><span>--</span><span>--:--</span><span class="eta">--:--</span></div>'
+      +'<div class="ln"><span>'+elevTxt()+'</span><span id="accTxt"></span></div>'
+      +'<div class="ln"><span>'+windTxt()+'</span></div>'
+      +'<div class="ln"><span>--</span></div>'
+      +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span><span>'+destTxt()+'</span></div>';
     fitBar(); updateAcc();
   }
   showIdleBar();
@@ -1565,7 +1567,11 @@
     info.className = 'route';
     info.style.display = 'flex';
     clearTimeout(infoTimer);
-    var html = '<span class="row"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span><span id="accTxt"></span><span>'+windTxt()+'</span>'+wxSpan()+'<span style="color:'+pressColor()+'">'+pressTxt()+'</span><span>'+destTxt()+'</span></span>';
+    var html = '<div class="ln"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span></div>'
+      +'<div class="ln"><span>'+elevTxt()+'</span><span id="accTxt"></span></div>'
+      +'<div class="ln"><span>'+windTxt()+'</span></div>'
+      +'<div class="ln">'+(wxSpan()||'<span>--</span>')+'</div>'
+      +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span><span>'+destTxt()+'</span></div>';
     if(html!==lastBar){ info.innerHTML = html; lastBar = html; }
     fitBar(); updateAcc();
   }
