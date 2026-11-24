@@ -162,6 +162,8 @@
     <div class="sug" id="sugFrom"></div>
     <div class="frow"><label>To:</label><div class="fld"><input id="to" placeholder="City or address" autocomplete="off"><button class="clr" data-for="to">✕</button></div></div>
     <div class="sug" id="sugTo"></div>
+    <div class="frow"><label>Leave:</label><div class="fld"><input id="depT" type="datetime-local"><button class="clr" data-for="depT">✕</button></div></div>
+    <div class="frow"><label>Arrive:</label><div class="fld"><input id="arrT" type="datetime-local"><button class="clr" data-for="arrT">✕</button></div></div>
     <div class="note" id="pstat"></div>
     <div class="sech"><span>Saved</span></div>
     <div class="plist" id="savedList"></div>
@@ -579,8 +581,8 @@
   function curTempTxt(){ return (windInfo && windInfo.temp!=null) ? tempSpan(Math.round(windInfo.temp)) : RDASH; }
   function loadDestTemp(){
     if(!routeMeta || !dest) return;
-    var a = (pos && cum.length) ? snap(pos.lat,pos.lng).along : 0, total = cum.length ? cum[cum.length-1] : routeMeta.dist;
-    var eta = Date.now() + Math.max(0,(total-a)/1609.34)/avgSpeed*3600000, my = ++destSeq;
+    var a = (pos && cum.length && !planFuture()) ? snap(pos.lat,pos.lng).along : 0, total = cum.length ? cum[cum.length-1] : routeMeta.dist;
+    var eta = planBase() + Math.max(0,(total-a)/1609.34)/avgSpeed*3600000, my = ++destSeq;
     var u = 'https://api.open-meteo.com/v1/forecast?latitude='+dest.lat.toFixed(3)+'&longitude='+dest.lng.toFixed(3)+'&hourly=temperature_2m&temperature_unit=fahrenheit&timeformat=unixtime&timezone=GMT&forecast_days=7';
     fetch(u).then(function(r){ return r.json() }).then(function(d){
       if(my!==destSeq || !d.hourly || !d.hourly.time) return;
@@ -1444,19 +1446,34 @@
     var t = cum[cum.length-1];
     return bearingBetween(pointAt(Math.min(al,t-300)), pointAt(Math.min(al+300,t)));
   }
+  // planned departure (Leave / Arrive fields in the route window); past or empty = leave now
+  function planBase(){
+    var now = Date.now(), d = null, dv = document.getElementById('depT').value, av = document.getElementById('arrT').value;
+    if(dv) d = Date.parse(dv);
+    else if(av && routeMeta){
+      var tot = cum.length ? cum[cum.length-1] : routeMeta.dist;
+      d = Date.parse(av) - tot/1609.34/avgSpeed*3600000;
+    }
+    return (d && !isNaN(d) && d>now) ? d : now;
+  }
+  function planFuture(){ return planBase() > Date.now()+60000; }
+  ['depT','arrT'].forEach(function(id){
+    var el = document.getElementById(id);
+    el.addEventListener('change',function(){ if(routeMeta){ lastBar = null; loadRouteWx(); loadDestTemp(); updateRouteInfo(null,true); } });
+  });
   function loadRouteWx(){
     if(!routeMeta || !cum.length) return;
     var my = ++wxSeq; wxState = 'loading';
-    var a = pos ? snap(pos.lat,pos.lng).along : 0, total = cum[cum.length-1];
+    var a = (pos && !planFuture()) ? snap(pos.lat,pos.lng).along : 0, total = cum[cum.length-1], base = planBase();
     var pts = [], step = Math.max(20*1609.34,(total-a)/120), maxD = total;
     for(var d=0; d<=maxD && a+d<=total; d+=step){
       var ll = pointAt(a+d);
-      pts.push({al:a+d,lat:ll.lat,lng:ll.lng,hd:routeHeadingAt(a+d),eta:Date.now()+(d/1609.34)/avgSpeed*3600000});
+      pts.push({al:a+d,lat:ll.lat,lng:ll.lng,hd:routeHeadingAt(a+d),eta:base+(d/1609.34)/avgSpeed*3600000});
     }
     if(!pts.length){ wxItems=[]; wxState='ok'; return }
     var u = 'https://api.open-meteo.com/v1/forecast?latitude='+pts.map(function(p){return p.lat.toFixed(3)}).join(',')
       +'&longitude='+pts.map(function(p){return p.lng.toFixed(3)}).join(',')
-      +'&hourly=temperature_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=mph&timeformat=unixtime&timezone=GMT&forecast_days=4';
+      +'&hourly=temperature_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=mph&timeformat=unixtime&timezone=GMT&forecast_days=8';
     var fc = fetch(u).then(function(r){return r.json()}).catch(function(){return null});
     var alertPts = pts.filter(function(p,i){return i%2===0}).slice(0,8);
     var al = Promise.all(alertPts.map(function(p){
@@ -1732,6 +1749,7 @@
     updateTurn();
   }
 
+  function tripSecsFull(){ var tot = cum.length ? cum[cum.length-1] : routeMeta.dist; return tot/1609.34/avgSpeed*3600; }
   function updateRouteInfo(mph,force){
     if(!routeMeta) return;
     if(!force && Date.now()<msgUntil) return;
@@ -1744,7 +1762,7 @@
     var secs = mi/avgSpeed*3600;
     var h = Math.floor(secs/3600), m = Math.round((secs%3600)/60);
     if(m===60){h++;m=0}
-    var etaD = new Date(Date.now()+secs*1000);
+    var etaD = new Date(planBase()+(planFuture() ? tripSecsFull() : secs)*1000);
     var eta = etaD.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
     var dt = etaD.toLocaleDateString('en-US',{month:'short',day:'numeric'});
     var tz = '';
@@ -1841,7 +1859,7 @@
       var i = document.getElementById(b.dataset.for);
       i.value = ''; delete i.dataset.lat; delete i.dataset.lng;
       var sg = document.getElementById('sug'+(b.dataset.for==='from' ? 'From' : 'To')); if(sg) sg.style.display = 'none';
-      pmsg(''); i.focus();
+      pmsg(''); if(i.type==='datetime-local'){ i.dispatchEvent(new Event('change')); } else i.focus();
     };
   });
   document.getElementById('savePlace').onclick = function(){
