@@ -489,17 +489,26 @@
     }
   }
   var windInfo = null, windBusy = false, windT = 0, windPos = null;
-  function windTxt(){
-    if(!windInfo) return '--';
+  function fmtWind(w,heading){
     var AR = ['↑','↗','→','↘','↓','↙','←','↖'];
-    var t = CARD[Math.round(windInfo.dir/45)%8]+Math.round(windInfo.spd)+'G'+(windInfo.gust!=null ? Math.round(windInfo.gust) : '--');
-    t += AR[Math.round(((windInfo.dir+180)%360)/45)%8];
-    if(lastHeading!=null){
-      var rel = ((windInfo.dir+180-lastHeading)%360+360)%360, k = Math.round(rel/45)%8;
-      var blue = (k===0 || k===1 || k===7);
-      t += '<span style="color:'+(blue ? '#4da3ff' : '#ff5a5f')+'">'+AR[k]+'</span>';
-    }
-    return t;
+    var t = CARD[Math.round(w.dir/45)%8]+Math.round(w.spd)+'G'+(w.gust!=null ? Math.round(w.gust) : '--');
+    t += AR[Math.round(((w.dir+180)%360)/45)%8];
+    if(heading==null) return t+'<span class="flash">↑</span>';
+    var rel = ((w.dir+180-heading)%360+360)%360, k = Math.round(rel/45)%8;
+    var blue = (k===0 || k===1 || k===7);
+    return t+'<span style="color:'+(blue ? '#4da3ff' : '#ff5a5f')+'">'+AR[k]+'</span>';
+  }
+  function windTxt(){ return windInfo ? fmtWind(windInfo,lastHeading) : '--'; }
+  // strongest wind now or later along the route (by gust)
+  function routeWindTxt(){
+    if(!routeMeta) return '--';
+    var cand = [];
+    if(wxWindWorst) cand.push({w:wxWindWorst,h:wxWindWorst.hd});
+    if(windInfo) cand.push({w:windInfo,h:lastHeading});
+    if(!cand.length) return '--';
+    var best = cand[0];
+    cand.forEach(function(c){ var v=(c.w.gust!=null ? c.w.gust : c.w.spd), bv=(best.w.gust!=null ? best.w.gust : best.w.spd); if(v>bv) best=c; });
+    return fmtWind(best.w,best.h);
   }
   function loadWind(){
     if(!pos || windBusy) return;
@@ -1248,7 +1257,7 @@
   }
 
   // --- weather along the route (Open-Meteo forecast + NWS alerts) ---
-  var wxItems = [], wxState = 'none', wxSeq = 0;
+  var wxItems = [], wxState = 'none', wxSeq = 0, wxWindWorst = null;
   var WXC = {green:'#3ddc84', yellow:'#ffd23f', red:'#ff5a5f', purple:'#c084fc'};
   function pointAt(al){
     var hi = cum.length-1;
@@ -1279,6 +1288,10 @@
     if(/severe thunderstorm/i.test(ev)) return {type:'TS',color:'red',flash:false,rank:71};
     return null;
   }
+  function routeHeadingAt(al){
+    var t = cum[cum.length-1];
+    return bearingBetween(pointAt(Math.min(al,t-300)), pointAt(Math.min(al+300,t)));
+  }
   function loadRouteWx(){
     if(!routeMeta || !cum.length) return;
     var my = ++wxSeq; wxState = 'loading';
@@ -1286,12 +1299,12 @@
     var pts = [], step = 20*1609.34, maxD = 300*1609.34;
     for(var d=0; d<=maxD && a+d<=total; d+=step){
       var ll = pointAt(a+d);
-      pts.push({al:a+d,lat:ll.lat,lng:ll.lng,eta:Date.now()+(d/1609.34)/avgSpeed*3600000});
+      pts.push({al:a+d,lat:ll.lat,lng:ll.lng,hd:routeHeadingAt(a+d),eta:Date.now()+(d/1609.34)/avgSpeed*3600000});
     }
     if(!pts.length){ wxItems=[]; wxState='ok'; return }
     var u = 'https://api.open-meteo.com/v1/forecast?latitude='+pts.map(function(p){return p.lat.toFixed(3)}).join(',')
       +'&longitude='+pts.map(function(p){return p.lng.toFixed(3)}).join(',')
-      +'&hourly=temperature_2m,precipitation,weather_code&timeformat=unixtime&timezone=GMT&forecast_days=2';
+      +'&hourly=temperature_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=mph&timeformat=unixtime&timezone=GMT&forecast_days=2';
     var fc = fetch(u).then(function(r){return r.json()}).catch(function(){return null});
     var alertPts = pts.filter(function(p,i){return i%2===0}).slice(0,8);
     var al = Promise.all(alertPts.map(function(p){
@@ -1301,7 +1314,7 @@
     }));
     Promise.all([fc,al]).then(function(res){
       if(my!==wxSeq) return;
-      var items = [], d = res[0];
+      var items = [], d = res[0], winds = [];
       if(d){
         (Array.isArray(d) ? d : [d]).forEach(function(loc,i){
           var p = pts[i]; if(!p || !loc.hourly) return;
@@ -1309,6 +1322,9 @@
           for(var k=0;k<t.length;k++){ var dd=Math.abs(t[k]*1000-p.eta); if(dd<bd){bd=dd;best=k} }
           var r = classifyFc(H.temperature_2m[best],H.precipitation[best],H.weather_code[best]);
           if(r){ r.al=p.al; r.eta=p.eta; items.push(r); }
+          if(H.wind_speed_10m && H.wind_direction_10m && H.wind_direction_10m[best]!=null){
+            winds.push({dir:H.wind_direction_10m[best],spd:H.wind_speed_10m[best],gust:H.wind_gusts_10m ? H.wind_gusts_10m[best] : null,hd:p.hd});
+          }
         });
       }
       var anyAlertOk = false;
@@ -1322,6 +1338,9 @@
           c.text = pr.event; c.al = x.p.al; c.eta = x.p.eta; items.push(c);
         });
       });
+      var worst = null;
+      winds.forEach(function(w){ var v = (w.gust!=null ? w.gust : w.spd); if(!worst || v>worst.v){ worst = w; worst.v = v; } });
+      wxWindWorst = worst;
       wxItems = items;
       wxState = (d || anyAlertOk) ? 'ok' : 'error';
       lastBar = null; updateRouteInfo(null,true);
@@ -1583,7 +1602,7 @@
     clearTimeout(infoTimer);
     var html = '<div class="ln"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span></div>'
       +'<div class="ln"><span>'+elevTxt()+'</span><span id="accTxt"></span></div>'
-      +'<div class="ln"><span>'+windTxt()+'</span></div>'
+      +'<div class="ln"><span>'+windTxt()+'</span><span style="color:var(--mute)">|</span><span>'+routeWindTxt()+'</span></div>'
       +'<div class="ln">'+(wxSpan()||'<span>--</span>')+'</div>'
       +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span><span>'+destTxt()+'</span></div>';
     if(html!==lastBar){ info.innerHTML = html; lastBar = html; }
@@ -1719,7 +1738,7 @@
     if(destMarker) map.removeLayer(destMarker);
     routeLine=null;destMarker=null;dest=null;routeMeta=null;routePts=[];
     stations=[]; rests=[]; setWs('W--',null); setRa('R--');
-    mans=[]; updateTurn(); wxItems=[]; wxState='none'; destTempF=null;
+    mans=[]; updateTurn(); wxItems=[]; wxState='none'; wxWindWorst=null; destTempF=null;
     setInfo('Route cleared');
   };
 
