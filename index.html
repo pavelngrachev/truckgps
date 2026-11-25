@@ -438,7 +438,9 @@
 (function(){
   var savedZoom = null;
   try{ var sz = parseFloat(localStorage.getItem('zoom')); if(sz>=3 && sz<=19) savedZoom = sz; }catch(e){}
-  var map = L.map('map',{zoomControl:false,zoomSnap:0,attributionControl:false}).setView([30.33,-81.66],savedZoom||11);
+  // the app opens at the widest scale (1024 mi per 100 px)
+  function zMaxAt(lat){ return Math.log(156543.03392*Math.cos(lat*Math.PI/180)/(1024*1609.344/100))/Math.LN2; }
+  var map = L.map('map',{zoomControl:false,zoomSnap:0,attributionControl:false}).setView([30.33,-81.66],zMaxAt(30.33));
   var skipSave = false;
   map.on('zoomend',function(){ if(skipSave) return; try{ localStorage.setItem('zoom',map.getZoom()); }catch(e){} });
   document.addEventListener('gesturestart',function(e){ e.preventDefault() });
@@ -482,9 +484,9 @@
 
   var panelEl = document.getElementById('panel');
   function openPanel(){ closePops(); panelEl.classList.add('open'); if(typeof renderLists==='function') renderLists(); }
-  var arrowIntroUntil = 0;
+  var arrowIntroUntil = 0, arrowIntroStart = 0;
   function arrowIntro(){
-    arrowIntroUntil = Date.now()+4850;
+    arrowIntroStart = Date.now(); arrowIntroUntil = arrowIntroStart+4850;
     lastBar = null; try{ refreshBar(); }catch(e){}
     setTimeout(function(){ lastBar = null; try{ refreshBar(); }catch(e){} }, 4900);
   }
@@ -526,7 +528,7 @@
     var dd = Math.round(w.dir/10)*10; if(dd===0) dd = 360;
     var t = '<span style="color:#4da3ff">'+String(dd).padStart(3,'0')+'</span>'+p2(w.spd)+'G'+gs;
     var intro = Date.now() < arrowIntroUntil;
-    function ar(g){ return intro ? '<span class="wa wi">↙</span>' : '<span class="wa">'+g+'</span>'; }
+    function ar(g){ return intro ? '<span class="wa wi" style="animation-delay:-'+((Date.now()-arrowIntroStart)/1000).toFixed(2)+'s">↙</span>' : '<span class="wa">'+g+'</span>'; }
     t += ar(AR[Math.round(((w.dir+180)%360)/45)%8]);
     if(heading==null) return t+(intro ? ar('') : '<span style="color:#ff5a5f">-</span>');
     var rel = ((w.dir+180-heading)%360+360)%360, k = Math.round(rel/45)%8;
@@ -661,7 +663,7 @@
     if(!me){
       me = L.marker(pos,{icon:L.divIcon({className:'',html:'<div class="arw" id="arw"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M12 2 L20 21 L12 16.5 L4 21 Z" fill="#2f8cff" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg></div>',iconSize:[30,30],iconAnchor:[15,15]})}).addTo(map);
       acc = L.circle(pos,{radius:p.coords.accuracy,weight:1,color:'#2f8cff',fillOpacity:.08}).addTo(map);
-      goTo(pos,savedZoom||15);
+      goTo(pos,zMaxAt(pos.lat));
     } else { me.setLatLng(pos); acc.setLatLng(pos).setRadius(p.coords.accuracy) }
     if(follow) goTo(pos);
     var mph = p.coords.speed!=null && p.coords.speed>=0 ? Math.round(p.coords.speed*2.23694) : null;
@@ -686,7 +688,7 @@
   }, {enableHighAccuracy:true,maximumAge:2000,timeout:20000});
 
   // --- zoom buttons with scale label ---
-  var LV = [['250 ft',250*0.3048],['500 ft',500*0.3048],['1 mi',1609.344],['2 mi',2*1609.344],['4 mi',4*1609.344],['8 mi',8*1609.344],['16 mi',16*1609.344],['32 mi',32*1609.344],['64 mi',64*1609.344],['128 mi',128*1609.344],['256 mi',256*1609.344],['512 mi',512*1609.344],['1000 mi',1000*1609.344]];
+  var LV = [['250 ft',250*0.3048],['500 ft',500*0.3048],['1 mi',1609.344],['2 mi',2*1609.344],['4 mi',4*1609.344],['8 mi',8*1609.344],['16 mi',16*1609.344],['32 mi',32*1609.344],['64 mi',64*1609.344],['128 mi',128*1609.344],['256 mi',256*1609.344],['512 mi',512*1609.344],['1024 mi',1024*1609.344]];
   var REF = 100; // CSS pixels that the scale label refers to
   function mppAt(z){ var c=map.getCenter(); return 156543.03392*Math.cos(c.lat*Math.PI/180)/Math.pow(2,z); }
   function levelIdx(){
