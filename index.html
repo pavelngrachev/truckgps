@@ -617,9 +617,9 @@
     info.className = 'route';
     info.style.display = 'flex';
     info.innerHTML = '<div class="ln"><span>'+RDASH+'</span><span>'+RDASH+'</span><span>'+RDASH+'</span><span>'+elevTxt()+'</span><span id="accTxt"></span><span>FT</span></div>'
-      +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+RDASH+'</span><span>'+RDASH+'</span></div>'
+      +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+RDASH+'</span><span style="color:'+pressColor()+'">'+pressTxt()+'</span><span>'+RDASH+'</span></div>'
       +'<div class="ln"><span>'+windTxt()+'</span></div>'
-      +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span>'+roadTxt()+'</div>'
+      +'<div class="ln">'+roadTxt()+'</div>'
       +'<div class="ln">'+homeTxt()+'</div>';
     fitBar(); updateAcc();
     fitBar(); updateAcc();
@@ -1913,9 +1913,9 @@
     info.style.display = 'flex';
     clearTimeout(infoTimer);
     var html = '<div class="ln"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span><span id="accTxt"></span><span>FT</span></div>'
-      +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+destTxt()+'</span>'+(wxSpan()||RDASH)+'</div>'
+      +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+destTxt()+'</span><span style="color:'+pressColor()+'">'+pressTxt()+'</span>'+(wxSpan()||RDASH)+'</div>'
       +'<div class="ln"><span>'+windTxt()+' '+routeWindTxt()+'</span></div>'
-      +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span>'+roadTxt()+'</div>'
+      +'<div class="ln">'+roadTxt()+'</div>'
       +'<div class="ln">'+homeTxt()+'</div>';
     if(html!==lastBar){ info.innerHTML = html; lastBar = html; }
     fitBar(); updateAcc();
