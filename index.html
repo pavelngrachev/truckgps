@@ -686,7 +686,7 @@
   }, {enableHighAccuracy:true,maximumAge:2000,timeout:20000});
 
   // --- zoom buttons with scale label ---
-  var LV = [['250 ft',250*0.3048],['500 ft',500*0.3048],['1 mi',1609.344],['2 mi',2*1609.344],['4 mi',4*1609.344],['8 mi',8*1609.344],['16 mi',16*1609.344],['32 mi',32*1609.344],['64 mi',64*1609.344],['128 mi',128*1609.344],['256 mi',256*1609.344]];
+  var LV = [['250 ft',250*0.3048],['500 ft',500*0.3048],['1 mi',1609.344],['2 mi',2*1609.344],['4 mi',4*1609.344],['8 mi',8*1609.344],['16 mi',16*1609.344],['32 mi',32*1609.344],['64 mi',64*1609.344],['128 mi',128*1609.344],['256 mi',256*1609.344],['512 mi',512*1609.344],['1000 mi',1000*1609.344]];
   var REF = 100; // CSS pixels that the scale label refers to
   function mppAt(z){ var c=map.getCenter(); return 156543.03392*Math.cos(c.lat*Math.PI/180)/Math.pow(2,z); }
   function levelIdx(){
@@ -1890,6 +1890,13 @@
     setInfo('Weigh station ahead','within 3 miles');
   }
 
+  // free map area: between the top and bottom windows and between the two button columns
+  function visPad(){
+    var bh = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bh')) || 60;
+    var tb = document.getElementById('turn').getBoundingClientRect().bottom, it = document.getElementById('info').getBoundingClientRect().top;
+    var side = bh + 16 + 12, top = tb + 12, bottom = window.innerHeight - it + 12;
+    return {paddingTopLeft:[side,top],paddingBottomRight:[side,bottom]};
+  }
   function draw(route,fit){
     if(routeLine) map.removeLayer(routeLine);
     routePts = route.geometry.coordinates.map(function(c){return L.latLng(c[1],c[0])});
@@ -1897,7 +1904,7 @@
     routeMeta = {dist:route.distance,dur:route.duration};
     prepRoute(); prepMans(route); loadStations(); loadRouteWx(); loadDestTemp();
     tollSegs = (route.tollRaw||[]).map(function(t){ return {a:cum[Math.min(t.a,cum.length-1)]||0,b:cum[Math.min(t.b,cum.length-1)]||0,usd:t.usd}; });
-    if(fit && !headingUp){ follow=false; recenter.classList.add('show'); programmatic=true; skipSave=true; map.fitBounds(routeLine.getBounds(),{padding:[60,90]}); setTimeout(function(){programmatic=false},800); setTimeout(function(){skipSave=false},1500) }
+    if(fit && !headingUp){ follow=false; recenter.classList.add('show'); programmatic=true; skipSave=true; map.fitBounds(routeLine.getBounds(),visPad()); setTimeout(function(){programmatic=false},800); setTimeout(function(){skipSave=false},1500) }
     updateRouteInfo(null,true);
     updateTurn();
     arrowIntro();
