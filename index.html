@@ -445,10 +445,10 @@
   map.on('zoomend',function(){ if(skipSave) return; try{ localStorage.setItem('zoom',map.getZoom()); }catch(e){} });
   document.addEventListener('gesturestart',function(e){ e.preventDefault() });
   var layers = {
-    streets: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,detectRetina:true,attribution:'Esri'}),
-    osm: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,detectRetina:true,attribution:'© OpenStreetMap'}),
-    topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,detectRetina:true,attribution:'© OpenTopoMap, OSM'}),
-    sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18,detectRetina:true,attribution:'Esri'})
+    streets: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:21,maxNativeZoom:19,detectRetina:true,attribution:'Esri'}),
+    osm: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:21,maxNativeZoom:19,detectRetina:true,attribution:'© OpenStreetMap'}),
+    topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:21,maxNativeZoom:17,detectRetina:true,attribution:'© OpenTopoMap, OSM'}),
+    sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:21,maxNativeZoom:18,detectRetina:true,attribution:'Esri'})
   };
   var current = 'osm', pendingLayer = null;
   try{
@@ -688,7 +688,7 @@
   }, {enableHighAccuracy:true,maximumAge:2000,timeout:20000});
 
   // --- zoom buttons with scale label ---
-  var LV = [['250 ft',250*0.3048],['500 ft',500*0.3048],['1 mi',1609.344],['2 mi',2*1609.344],['4 mi',4*1609.344],['8 mi',8*1609.344],['16 mi',16*1609.344],['32 mi',32*1609.344],['64 mi',64*1609.344],['128 mi',128*1609.344],['256 mi',256*1609.344],['512 mi',512*1609.344],['1024 mi',1024*1609.344]];
+  var LV = [['83 ft',82.5*0.3048],['165 ft',165*0.3048],['330 ft',330*0.3048],['660 ft',660*0.3048],['0.25 mi',0.25*1609.344],['0.5 mi',0.5*1609.344],['1 mi',1609.344],['2 mi',2*1609.344],['4 mi',4*1609.344],['8 mi',8*1609.344],['16 mi',16*1609.344],['32 mi',32*1609.344],['64 mi',64*1609.344],['128 mi',128*1609.344],['256 mi',256*1609.344],['512 mi',512*1609.344],['1024 mi',1024*1609.344]];
   var REF = 100; // CSS pixels that the scale label refers to
   function mppAt(z){ var c=map.getCenter(); return 156543.03392*Math.cos(c.lat*Math.PI/180)/Math.pow(2,z); }
   function levelIdx(){
@@ -1202,7 +1202,7 @@
       return;
     }
     var base = 'https://maps.hereapi.com/v3/base/mc/{z}/{x}/{y}/png?size=512&style=explore.day&apiKey='+encodeURIComponent(hereKey);
-    var o = {tileSize:512,zoomOffset:-1,maxZoom:19,attribution:'© HERE'};
+    var o = {tileSize:512,zoomOffset:-1,maxZoom:21,maxNativeZoom:19,attribution:'© HERE'};
     layers.here = L.tileLayer(base,o);
     layers.heretruck = L.tileLayer(base+'&features=vehicle_restrictions:active_and_inactive',o);
     btns.forEach(function(b){ b.style.display=''; });
