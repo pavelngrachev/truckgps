@@ -619,8 +619,8 @@
     info.innerHTML = '<div class="ln"><span>'+RDASH+'</span><span>'+RDASH+'</span><span>'+RDASH+'</span><span>'+elevTxt()+'</span><span id="accTxt"></span><span>FT</span></div>'
       +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+RDASH+'</span><span>'+RDASH+'</span></div>'
       +'<div class="ln"><span>'+windTxt()+'</span></div>'
-      +'<div class="ln">'+homeTxt()+'</div>'
-      +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span>'+roadTxt()+'</div>';
+      +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span>'+roadTxt()+'</div>'
+      +'<div class="ln">'+homeTxt()+'</div>';
     fitBar(); updateAcc();
     fitBar(); updateAcc();
   }
@@ -794,16 +794,18 @@
     if(!homeLoc || !homeWx) return RDASH;
     var t = tempSpan(Math.round(homeWx.temp)), r = classifyFc((homeWx.temp-32)/1.8,homeWx.precip||0,homeWx.code);
     var wx = r ? ' <span class="'+(r.flash?'flash':'')+'" style="color:'+WXC[r.color]+'">'+r.type+'</span>' : ' CL';
-    return '<span style="color:#ff9f1a">'+t+' '+fmtWind(homeWx,homeFace)+wx+'</span>';
+    var ih = homeWx.press!=null ? homeWx.press*0.02953 : null, pc = ih==null ? '' : (ih<29.80 ? '#4da3ff' : (ih>30.20 ? '#ff5a5f' : ''));
+    var pr = ih==null ? RDASH : '<span'+(pc ? ' style="color:'+pc+'"' : '')+'>'+ih.toFixed(2)+' INHG</span>';
+    return '<span style="color:#ff9f1a">'+t+' '+fmtWind(homeWx,homeFace)+' '+pr+wx+'</span>';
   }
   function loadHomeWx(){
     if(!homeLoc || homeBusy) return;
     homeBusy = true;
-    fetch('https://api.open-meteo.com/v1/forecast?latitude='+homeLoc.lat.toFixed(4)+'&longitude='+homeLoc.lng.toFixed(4)+'&current=temperature_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=mph&temperature_unit=fahrenheit')
+    fetch('https://api.open-meteo.com/v1/forecast?latitude='+homeLoc.lat.toFixed(4)+'&longitude='+homeLoc.lng.toFixed(4)+'&current=temperature_2m,pressure_msl,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=mph&temperature_unit=fahrenheit')
       .then(function(r){ return r.json() }).then(function(d){
         var c = d.current;
         if(c && c.temperature_2m!=null && c.wind_direction_10m!=null){
-          homeWx = {temp:c.temperature_2m,dir:c.wind_direction_10m,spd:c.wind_speed_10m,gust:c.wind_gusts_10m,precip:c.precipitation,code:c.weather_code};
+          homeWx = {temp:c.temperature_2m,dir:c.wind_direction_10m,spd:c.wind_speed_10m,gust:c.wind_gusts_10m,precip:c.precipitation,code:c.weather_code,press:c.pressure_msl};
           lastBar = null; refreshBar();
         }
         homeBusy = false;
@@ -1913,8 +1915,8 @@
     var html = '<div class="ln"><span>'+(mi<10 ? mi.toFixed(1) : Math.round(mi).toLocaleString('en-US'))+'</span><span>'+h+':'+(m<10?'0':'')+m+'</span><span class="eta">'+eta+(tz?' '+tz:'')+'</span><span>'+elevTxt()+'</span><span id="accTxt"></span><span>FT</span></div>'
       +'<div class="ln"><span>'+curTempTxt()+'</span><span>'+destTxt()+'</span>'+(wxSpan()||RDASH)+'</div>'
       +'<div class="ln"><span>'+windTxt()+' '+routeWindTxt()+'</span></div>'
-      +'<div class="ln">'+homeTxt()+'</div>'
-      +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span>'+roadTxt()+'</div>';
+      +'<div class="ln"><span style="color:'+pressColor()+'">'+pressTxt()+'</span>'+roadTxt()+'</div>'
+      +'<div class="ln">'+homeTxt()+'</div>';
     if(html!==lastBar){ info.innerHTML = html; lastBar = html; }
     fitBar(); updateAcc();
   }
