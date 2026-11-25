@@ -787,12 +787,13 @@
   try{
     homeLoc = JSON.parse(localStorage.getItem('homeLoc')||'null');
     var hf = parseFloat(localStorage.getItem('homeFace')); homeFace = isNaN(hf) ? null : hf;
-    var hfa = parseFloat(localStorage.getItem('homeFaceAuto')); if(homeFace==null && !isNaN(hfa)) homeFace = hfa;
   }catch(e){}
+  var HOME_FACE = 63; // measured from the map: house walls run 153°/63°, the street is on the 63° side
+  if(homeFace==null) homeFace = HOME_FACE;
   function homeTxt(){
     if(!homeLoc || !homeWx) return RDASH;
     var t = tempSpan(Math.round(homeWx.temp)), r = classifyFc((homeWx.temp-32)/1.8,homeWx.precip||0,homeWx.code);
-    var wx = r ? ' <span class="'+(r.flash?'flash':'')+'" style="color:'+WXC[r.color]+'">'+r.type+'</span>' : '';
+    var wx = r ? ' <span class="'+(r.flash?'flash':'')+'" style="color:'+WXC[r.color]+'">'+r.type+'</span>' : ' CL';
     return '<span style="color:#ff9f1a">'+t+' '+fmtWind(homeWx,homeFace)+wx+'</span>';
   }
   function loadHomeWx(){
@@ -823,13 +824,14 @@
           if(!best || dist<best.d) best = {d:dist,x:qx-p[0],y:qy-p[1]};
         }
       });
+      if(!best || best.d<=1) homeNote('Porch direction not found: type it in the field above');
       if(best && best.d>1){
         var br = (Math.atan2(best.x,best.y)*180/Math.PI+360)%360;
         homeFace = br; try{ localStorage.setItem('homeFaceAuto',String(br)); }catch(e){}
         homeNote('Home found. Porch faces '+Math.round(br)+'°');
         lastBar = null; refreshBar();
       }
-    }).catch(function(){});
+    }).catch(function(){ homeNote('Porch direction: road search failed, retrying'); });
   }
   function homeNote(t){ var n = document.getElementById('homeNote'); if(n) n.textContent = t; }
   var haEl = document.getElementById('homeAddr'), hfEl = document.getElementById('homeFace');
@@ -845,18 +847,18 @@
         homeLoc = {lat:parseFloat(j[0].lat),lng:parseFloat(j[0].lon)};
         try{ localStorage.setItem('homeLoc',JSON.stringify(homeLoc)); localStorage.removeItem('homeFaceAuto'); }catch(e){}
         homeFace = null; homeWx = null; homeNote('Address found');
-        if(hfEl.value.trim()){ var v = parseFloat(hfEl.value); if(!isNaN(v)) homeFace = ((v%360)+360)%360; } else detectFace();
+        homeFace = HOME_FACE; if(hfEl.value.trim()){ var v = parseFloat(hfEl.value); if(!isNaN(v)) homeFace = ((v%360)+360)%360; }
         loadHomeWx();
       }).catch(function(){ homeNote('Address search failed'); });
   });
   hfEl.addEventListener('change',function(){
     var v = parseFloat(hfEl.value);
     try{ if(isNaN(v)) localStorage.removeItem('homeFace'); else localStorage.setItem('homeFace',String(v)); }catch(e){}
-    if(isNaN(v)){ homeFace = null; try{ var ha = parseFloat(localStorage.getItem('homeFaceAuto')); if(!isNaN(ha)) homeFace = ha; else detectFace(); }catch(e){} }
+    if(isNaN(v)){ homeFace = HOME_FACE; }
     else homeFace = ((v%360)+360)%360;
     lastBar = null; refreshBar();
   });
-  if(homeLoc){ loadHomeWx(); if(homeFace==null) detectFace(); }
+  if(homeLoc){ loadHomeWx(); }
   setInterval(loadHomeWx, 600000);
 
   // --- speed limit (OpenStreetMap maxspeed, loaded around your position) ---
