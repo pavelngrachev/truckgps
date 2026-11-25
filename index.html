@@ -791,17 +791,18 @@
   }catch(e){}
   function homeTxt(){
     if(!homeLoc || !homeWx) return RDASH;
-    var t = tempSpan(Math.round(homeWx.temp));
-    return '<span>'+t+' '+fmtWind(homeWx,homeFace)+'</span>';
+    var t = tempSpan(Math.round(homeWx.temp)), r = classifyFc((homeWx.temp-32)/1.8,homeWx.precip||0,homeWx.code);
+    var wx = r ? ' <span class="'+(r.flash?'flash':'')+'" style="color:'+WXC[r.color]+'">'+r.type+'</span>' : '';
+    return '<span style="color:#ff9f1a">'+t+' '+fmtWind(homeWx,homeFace)+wx+'</span>';
   }
   function loadHomeWx(){
     if(!homeLoc || homeBusy) return;
     homeBusy = true;
-    fetch('https://api.open-meteo.com/v1/forecast?latitude='+homeLoc.lat.toFixed(4)+'&longitude='+homeLoc.lng.toFixed(4)+'&current=temperature_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=mph&temperature_unit=fahrenheit')
+    fetch('https://api.open-meteo.com/v1/forecast?latitude='+homeLoc.lat.toFixed(4)+'&longitude='+homeLoc.lng.toFixed(4)+'&current=temperature_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=mph&temperature_unit=fahrenheit')
       .then(function(r){ return r.json() }).then(function(d){
         var c = d.current;
         if(c && c.temperature_2m!=null && c.wind_direction_10m!=null){
-          homeWx = {temp:c.temperature_2m,dir:c.wind_direction_10m,spd:c.wind_speed_10m,gust:c.wind_gusts_10m};
+          homeWx = {temp:c.temperature_2m,dir:c.wind_direction_10m,spd:c.wind_speed_10m,gust:c.wind_gusts_10m,precip:c.precipitation,code:c.weather_code};
           lastBar = null; refreshBar();
         }
         homeBusy = false;
